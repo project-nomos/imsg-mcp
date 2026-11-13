@@ -2,7 +2,7 @@
 
 An [MCP](https://modelcontextprotocol.io) server that lets AI assistants read and send your iMessage and SMS texts through a Mac you control, with guardrails the model cannot talk its way around.
 
-Point Claude (on the web, desktop or phone), Claude Code, [Claude Duet](https://claude.com/product/claude-duet) or an Agent SDK agent at it, and the assistant can list your chats, read history, catch up on what arrived since it last looked, search, and (only if you turn it on) send texts from your number.
+Point Claude (on the web, desktop or phone), Claude Code or an Agent SDK agent at it, and the assistant can list your chats, read history, catch up on what arrived since it last looked, search, and (only if you turn it on) send texts from your number. It is built for proactive assistants such as [Claude Duet](https://claude.com/product/claude-duet), which polls connected accounts and asks before sending (whether Duet picks up custom connectors is covered in [docs/clients.md](docs/clients.md#claude-duet)).
 
 ```
 You: "What are my latest texts?"

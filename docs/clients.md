@@ -12,7 +12,9 @@ Claude calls the server from Anthropic's cloud, not from your phone or laptop, s
 
 ### Claude Duet
 
-[Claude Duet](https://claude.com/product/claude-duet) (a research preview as of late 2026) is Anthropic's proactive agent app. It uses the connectors on your Claude account, so after you add the custom connector above it can use these tools: for example, polling `check_new_messages` to tell you what needs your attention and drafting replies for you to approve. Duet checks with you before it acts on your behalf, and this server still enforces the allowlist, length and rate limits on every send. Connector support in a research preview can change; check Duet's current documentation.
+[Claude Duet](https://claude.com/product/claude-duet) (a research preview as of late 2026) is Anthropic's proactive agent app. According to Anthropic, it "carries over your memory, skills, and connected apps from your Claude account", "checks your connected accounts every few hours", and shows you a message and waits for approval before sending it. That fits this server: Duet can poll `check_new_messages` with a cursor and draft replies for you to approve, while the server still enforces the allowlist, length and rate limits on every send.
+
+Anthropic's Duet pages describe connectors from the Claude Marketplace and do not say whether **custom** connectors (servers added by URL, like this one) are included. After adding the custom connector above, check in Duet that the iMessage tools are available; support in a research preview can change.
 
 A good pattern for a proactive agent is:
 

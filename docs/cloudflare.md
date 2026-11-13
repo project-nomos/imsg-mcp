@@ -30,7 +30,7 @@ Use `127.0.0.1` rather than `localhost`: the server listens on IPv4 loopback onl
 
 ## 2. Access application for people (Managed OAuth)
 
-Used by Claude on the web, desktop and mobile (and Claude apps that use your account's connectors, such as Claude Duet), and by Claude Code.
+Used by Claude on the web, desktop and mobile (and other Claude apps that use your account's connectors, possibly including Claude Duet; see [clients.md](clients.md#claude-duet)), and by Claude Code.
 
 1. Zero Trust → Access controls → Applications → Add an application → Self-hosted.
 2. Domain: `imsg.example.com`.
