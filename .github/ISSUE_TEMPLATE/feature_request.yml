@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest an improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and privacy
+      description: Does this change what an assistant can read or send, or what leaves the Mac? How should it be fenced?

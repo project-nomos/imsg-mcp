@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent for imsg-mcp. scripts/install.sh fills in the __PLACEHOLDERS__ and writes it to
+  ~/Library/LaunchAgents/<label>.plist of the bot user.
+
+  It must be a LaunchAgent in the bot user's GUI session, not a system LaunchDaemon:
+  Messages and AppleScript only work inside a logged-in user session.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>__LABEL__</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__BINARY__</string>
+    <string>serve</string>
+  </array>
+
+  <!-- Start at login and restart whenever it exits. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <!-- Only in the GUI (Aqua) session, where Messages.app runs. -->
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- launchd starts agents with a bare PATH; imsg lives in Homebrew. -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- The server keeps its own rotated logs in ~/Library/Logs/imsg-mcp; these only catch crashes. -->
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/imsg-mcp/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/imsg-mcp/launchd.err.log</string>
+</dict>
+</plist>

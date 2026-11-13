@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Local config and runtime state (never commit)
+config.toml
+*.db
+*.db-wal
+*.db-shm
+*.jsonl
+!test/fixtures/**/*.jsonl
+*.log
+.env
+.env.*
+
+# Signing material
+*.p12
+*.cer
+*.mobileprovision
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+*.swp

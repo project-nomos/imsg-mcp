@@ -1,0 +1,91 @@
+/**
+ * The config written by `imsg-mcp init`. Kept identical to deploy/config.example.toml
+ * (a test checks this).
+ */
+export const EXAMPLE_CONFIG = `# imsg-mcp configuration
+#
+# Location: ~/Library/Application Support/imsg-mcp/config.toml (mode 0600).
+# Reload without a restart:  kill -HUP <pid>
+#   (or: launchctl kill SIGHUP gui/$(id -u)/ai.mynomos.imsg-mcp)
+# Check it:                  imsg-mcp check-config
+# Reference:                 docs/configuration.md
+
+[server]
+# MCP endpoint. Loopback only: cloudflared on this Mac is the only thing that should reach it.
+listen = "127.0.0.1:8787"
+# GET /healthz. Keep this port out of the tunnel.
+health_listen = "127.0.0.1:8788"
+
+[imsg]
+# The imsg binary. A bare name is looked up in PATH, /opt/homebrew/bin and /usr/local/bin.
+path = "imsg"
+# Optional chat.db override (passed to "imsg rpc --db").
+db = ""
+# Timeout for each imsg rpc call.
+call_timeout_ms = 10000
+
+[send]
+# When false, the send_message tool is not registered at all.
+enabled = false
+# Who Claude may text: E.164 numbers, emails, or chat ids. Empty blocks every send.
+# A chat id approves that conversation; otherwise every member of a group must be listed.
+allowlist = []
+# Longest message accepted, in characters.
+max_chars = 1000
+# Sliding-window limits shared by every client.
+rate = "10/hour, 40/day"
+# How long to look for the sent message in history before reporting "handed_off_unconfirmed".
+confirm_timeout_ms = 10000
+
+[read]
+# "all", or a list of chat ids, chat identifiers/GUIDs, and handles Claude may read.
+# A handle (E.164 or email) allows the 1:1 chat with that person; list group chats by id.
+scope = "all"
+# Message text longer than this is cut off and marked truncated.
+max_text_chars = 4000
+
+[access]
+# Your Cloudflare Zero Trust team domain.
+team_domain = ""            # e.g. "myteam.cloudflareaccess.com"
+# AUD tag of each Cloudflare Access application in front of this server (people and machines).
+aud = []
+# Emails given the full role (read, plus send when enabled).
+people = []                 # e.g. ["you@example.com"]
+# Allowed clock skew when checking token times.
+clock_tolerance_seconds = 10
+
+# Service token client id -> role ("read" or "read_send") for headless agents.
+[access.service_tokens]
+# "0123456789abcdef.access" = "read"
+
+[store]
+# Days to keep inbound messages in state.db.
+retention_days = 14
+
+[logging]
+level = "info"              # debug, info, warn, error
+server_retention_days = 14
+audit_retention_days = 90
+
+[heartbeat]
+# Dead-man's switch URL (for example a Healthchecks.io ping URL). Pinged only while healthy.
+url = ""
+interval_seconds = 300
+
+[health]
+# How often to compare the watch with the database and resubscribe if it fell behind.
+sync_check_interval_seconds = 600
+# How often to check that Messages.app is running.
+messages_check_interval_seconds = 60
+# Open Messages.app when it is not running (and retry a failed send once).
+relaunch_messages = true
+
+[local]
+# Role for stdio mode ("imsg-mcp stdio"), where the caller is the local user.
+role = "full"
+
+[selftest]
+# Allowlisted handle that "imsg-mcp selftest" texts. Have it reply to finish the test.
+to = ""
+reply_timeout_seconds = 120
+`;

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+bun.lock
+*.md.bak
+iMessage MCP on Mac mini*.md

@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+env:
+  BUN_VERSION: "1.4.4"
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
+      - name: Check the tag matches package.json
+        run: |
+          version="$(jq -r .version package.json)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${version}" >&2
+            exit 1
+          fi
+
+      - name: Build binaries
+        run: |
+          TARGET=bun-darwin-arm64 OUT=dist/arm64/imsg-mcp scripts/build.sh
+          TARGET=bun-darwin-x64 OUT=dist/x64/imsg-mcp scripts/build.sh
+          mkdir -p out
+          tar -C dist/arm64 -czf "out/imsg-mcp-${GITHUB_REF_NAME}-darwin-arm64.tar.gz" imsg-mcp
+          tar -C dist/x64 -czf "out/imsg-mcp-${GITHUB_REF_NAME}-darwin-x64.tar.gz" imsg-mcp
+          (cd out && shasum -a 256 ./*.tar.gz > SHA256SUMS)
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
+          body: |
+            **These binaries are not signed with a stable identity.** macOS ties Full Disk Access
+            and Automation grants to the code signature, so sign the binary yourself before you
+            install it, and use the same identity for every update:
+
+            ```bash
+            tar -xzf imsg-mcp-*-darwin-arm64.tar.gz
+            scripts/sign.sh "Your signing identity" ./imsg-mcp
+            sudo scripts/install.sh --user imsgbot --binary ./imsg-mcp
+            ```
+
+            See [docs/mac-mini-setup.md](https://github.com/project-nomos/imsg-mcp/blob/main/docs/mac-mini-setup.md).

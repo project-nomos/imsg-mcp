@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: "1.4.4"
+
+jobs:
+  check:
+    name: Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The suite uses a stub imsg, so it runs on Linux too; macOS covers the real platform.
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun test
+
+  real-imsg:
+    name: Against the real imsg (synthetic chat.db)
+    runs-on: macos-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Install imsg (current Homebrew version)
+        run: |
+          brew install steipete/tap/imsg
+          imsg --version
+      - name: Run the server against the real imsg binary
+        run: bun test test/integration/real-imsg.test.ts
+        env:
+          IMSG_MCP_TEST_REAL_IMSG: "1"
+
+  build:
+    name: Build binary
+    runs-on: macos-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: scripts/build.sh
+      - name: Smoke-test the binary
+        run: |
+          dist/imsg-mcp version
+          dist/imsg-mcp --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: imsg-mcp-darwin-arm64-unsigned
+          path: dist/imsg-mcp
+          retention-days: 7

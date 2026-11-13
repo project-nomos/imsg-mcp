@@ -1,0 +1,19 @@
+# Only for a locally-managed tunnel. The recommended setup is a dashboard-managed tunnel
+# installed with `sudo cloudflared service install <token>` (see docs/cloudflare.md), where
+# the same ingress rules are entered in the Zero Trust dashboard instead of this file.
+#
+# Both hostnames reach the same local server. Cloudflare Access sits in front of each:
+#   imsg.example.com        people (Managed OAuth): Claude web, desktop, mobile, Claude Code
+#   imsg-agent.example.com  machines (service tokens): Agent SDK and other headless agents
+tunnel: mac-mini
+credentials-file: /etc/cloudflared/mac-mini.json
+
+ingress:
+  - hostname: imsg.example.com
+    service: http://127.0.0.1:8787
+  - hostname: imsg-agent.example.com
+    service: http://127.0.0.1:8787
+  # Everything else, including the health port, is refused.
+  - service: http_status:404
+# 127.0.0.1 rather than "localhost": the server listens on IPv4 loopback only, and
+# "localhost" can resolve to ::1 first.
