@@ -39,7 +39,7 @@ jobs:
           tar -C dist/x64 -czf "out/imsg-mcp-${GITHUB_REF_NAME}-darwin-x64.tar.gz" imsg-mcp
           (cd out && shasum -a 256 ./*.tar.gz > SHA256SUMS)
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: out/*
           generate_release_notes: true
