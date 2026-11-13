@@ -22,7 +22,7 @@ It **can** make the safe path the easy one: sending is opt-in, the allowlist and
 
 It **cannot** stop a model from being persuaded by text it reads. Treat these as essential:
 
-1. Keep `send_message` on "ask every time" in every client.
+1. Approve every `send_message` call individually in every client; never "Allow always".
 2. Keep the allowlist short. Prefer listing people's handles over group chat ids.
 3. Use a narrow `read.scope` if you connect other tools (email, web browsing) in the same conversation.
 4. Start read-only. Watch how the assistant behaves with real inbound texts before turning sending on.

@@ -4,11 +4,11 @@ Every Claude surface connects to the same server and gets the same tools. **Send
 
 ## Claude on the web, desktop and mobile (custom connector)
 
-1. Settings → Connectors → Add custom connector. Name: `iMessage`. URL: `https://imsg.example.com/mcp`. Leave the OAuth client ID and secret empty so Claude registers itself.
+1. Pro and Max: **Customize > Connectors > + Add > Add custom connector**. (Team and Enterprise owners: **Organization settings > Connectors > Add > Custom > Web**.) Name: `iMessage`. URL: `https://imsg.example.com/mcp`. Leave the OAuth client ID and secret empty so Claude registers itself. Free plans allow one custom connector.
 2. Click **Connect** and sign in on the Cloudflare page.
-3. In the connector's tool settings, set `send_message` to **ask every time** (it is marked destructive, so this should be the default; check it).
+3. `send_message` is marked destructive, so Claude asks before each call. Approve sends one at a time and **never choose "Allow always"** for it. To keep a connection strictly read-only, turn `send_message` off in the **Search and tools** menu (or leave `send.enabled = false` on the server).
 
-Claude calls the server from Anthropic's cloud, not from your phone or laptop, so mobile works anywhere and one connection serves every device signed in to the account.
+Claude calls the server from Anthropic's cloud, not from your phone or laptop, so one connection serves claude.ai, Claude Desktop, Claude mobile and Cowork on every device signed in to the account, including on cellular. Sources: [custom connectors help article](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp), [building connectors](https://claude.com/docs/connectors/building/index.md).
 
 ### Claude Duet
 
