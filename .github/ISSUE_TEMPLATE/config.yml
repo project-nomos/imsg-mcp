@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/project-nomos/imsg-mcp/security/advisories/new
+    about: Please report security problems privately, not in public issues.
+  - name: imsg (the Messages CLI underneath)
+    url: https://github.com/steipete/imsg/issues
+    about: Problems reading chat.db or driving Messages may belong upstream.
