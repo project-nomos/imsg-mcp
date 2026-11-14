@@ -37,6 +37,8 @@ cloudflared tunnel --config ~/.cloudflared/imsg-mcp.yml ingress rule https://ims
 
 Both hostnames go to `http://127.0.0.1:8787`, and everything else gets `404`. Use `127.0.0.1` rather than `localhost`: the server listens on IPv4 loopback only. Never publish the health port (8788). No router port forwarding and no inbound firewall rule are needed.
 
+Keep a hostname's rule in the file only while an Access application protects it. If you skip the machines application, delete the `imsg-agent` rule: its DNS record then falls through to the `404` rule instead of reaching the Mac.
+
 **Don't start the tunnel yet.** Until it runs, the hostnames answer `530`. You start it in [step 4](#4-start-the-tunnel), once Access is in front.
 
 ### Alternative: a tunnel managed from the dashboard
@@ -51,18 +53,32 @@ This is the only application Claude needs. It covers:
 - other Claude apps that use your account's connectors, possibly including Claude Duet (see [clients.md](clients.md#claude-duet));
 - Claude Code.
 
-1. Zero Trust → Access controls → Applications → Add an application → Self-hosted.
-2. Domain: `imsg.example.com`.
-3. Policy: **Allow**, include **Emails**: your address. Nobody else.
-4. Login method: Cloudflare one-time PIN (a code sent to your email, the simplest), or an identity provider with MFA (for example Google).
-5. Advanced settings → turn on **Managed OAuth**, then:
-   - **Dynamic client registration**: on. Claude uses a Client ID Metadata Document only when the server advertises one; otherwise it registers itself dynamically.
-   - **Allowed redirect URIs**: `https://claude.ai/api/mcp/auth_callback` (Claude web, desktop and mobile).
-   - **Allow localhost clients** and **Allow loopback clients**: on. Claude Code signs in through a loopback redirect on a random port.
-   - **Access token lifetime**: 15 minutes. **Grant session duration**: 14 days.
-6. Save, then copy the application's **AUD tag** (Overview tab) into `access.aud`.
+In the Cloudflare One dashboard (as of November 2026):
 
-With Managed OAuth on, Access answers unauthenticated requests with `401` and a `WWW-Authenticate` header pointing at its OAuth discovery metadata. Without it, you get a browser redirect, which agents cannot follow. Cloudflare requires clients that support RFC 8707 resource indicators, so confirm sign-in works from each Claude surface during rollout.
+1. **Access controls → Applications → Create new application → Self-hosted and private**, with **Public DNS** selected, then **Continue**.
+2. **Destinations:** subdomain `imsg`, domain `example.com`, no path. Protecting the whole hostname also covers the OAuth discovery paths.
+3. **Access policies → Create new policy:**
+   - Action: **Allow**.
+   - Include: **Emails**, listing your addresses (the ones you sign in with) and nobody else.
+4. **Authentication:** leave **Accept all available identity providers** on. A new organization signs you in with a one-time PIN: a code sent to your email. If you want MFA, add an identity provider with MFA (for example Google) under **Integrations → Identity providers**.
+5. **Additional settings** tab → turn on **Managed OAuth** and expand it:
+   - **Allow localhost clients** and **Allow loopback clients**: on (the default). Claude Code signs in through a loopback redirect on a random port.
+   - **Allowed redirect URIs**: `https://claude.ai/api/mcp/auth_callback`, the callback of Claude on the web, desktop and mobile.
+   - **Grant session duration**: 2 weeks. **Access token lifetime**: leave the default, 15 minutes.
+
+   Dynamic client registration has no switch of its own: Managed OAuth always offers it, restricted to the redirect URIs above and to localhost and loopback clients.
+
+6. **Create**, then open the application again: **Additional settings → Application Audience (AUD) Tag**. Copy it into `access.aud`.
+
+With Managed OAuth on, Access answers unauthenticated requests with `401`, even before the tunnel runs. The `WWW-Authenticate` header points at protected-resource metadata, which also tells you your team domain:
+
+```bash
+curl -s https://imsg.example.com/.well-known/oauth-protected-resource/mcp   # "team_domain": "<name>.cloudflareaccess.com"
+```
+
+Without Managed OAuth, you get a browser redirect, which agents cannot follow. Cloudflare requires clients that support RFC 8707 resource indicators, so confirm sign-in works from each Claude surface during rollout.
+
+**What about MCP Portals?** Cloudflare One also has **Access controls → MCP Portals**. Its **MCP servers** tab registers a server so that Cloudflare connects to it as a client and offers its tools through a portal URL. It does not protect the server's own hostname. `imsg-mcp` accepts only requests signed by the Access application above, so start with that application. A portal would add a second hop and a second sign-in, and the server would see the portal's credentials instead of you.
 
 ## 3. Access application for machines (service tokens, optional)
 
@@ -71,11 +87,14 @@ Skip this if you only use Claude's apps. You need it for:
 - Agent SDK agents and other headless clients that cannot do an interactive sign-in;
 - the service-token checks in `imsg-mcp acceptance`.
 
-1. Zero Trust → Access controls → Service credentials → Service tokens → Create. Make one token per agent, and note its **Client ID** (it looks like `0123456789abcdef.access`) and **Client Secret**. The secret is shown only once.
-2. Add a second self-hosted application for `imsg-agent.example.com`.
+1. **Access controls → Service credentials → Service tokens → Create.**
+   - Make one token per agent.
+   - Note its **Client ID** (it looks like `0123456789abcdef.access`) and its **Client Secret**. The secret is shown only once.
+2. Create a second application the same way as in step 2, for `imsg-agent.example.com`.
 3. Policy: action **Service Auth**, include **Service Token**: the tokens you created.
 4. Copy this application's AUD tag into `access.aud` as well.
-5. Map each token to a role in the config. Give agents `read` unless they truly need to send:
+5. Add the `imsg-agent` rule to the tunnel config if you removed it, and restart the tunnel.
+6. Map each token to a role in the config. Give agents `read` unless they truly need to send:
 
    ```toml
    [access.service_tokens]
@@ -108,7 +127,7 @@ Once Access protects the hostnames, run the tunnel as a LaunchAgent of the same 
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.mynomos.imsg-tunnel.plist
    ```
 
-It restarts if it exits, and it logs to `~/Library/Logs/imsg-mcp/cloudflared.log`. Updates come through Homebrew (the plist turns off `cloudflared`'s own updater). After `brew upgrade cloudflared`, restart it with `launchctl kickstart -k gui/$(id -u)/ai.mynomos.imsg-tunnel`.
+This works over SSH too. It restarts if it exits, and it logs to `~/Library/Logs/imsg-mcp/cloudflared.log`. Updates come through Homebrew (the plist turns off `cloudflared`'s own updater). After `brew upgrade cloudflared`, restart it with `launchctl kickstart -k gui/$(id -u)/ai.mynomos.imsg-tunnel`.
 
 Anything in `~/Library/LaunchAgents` also starts at your next login. If you save the file there before Access is ready:
 
@@ -121,11 +140,13 @@ Anything in `~/Library/LaunchAgents` also starts at your next login. If you save
 [access]
 team_domain = "yourteam.cloudflareaccess.com"   # the team name you chose for Zero Trust
 aud = ["<AUD tag of the people app>", "<AUD tag of the machine app, if any>"]
-people = ["you@example.com"]
+people = ["you@example.com", "you@personal.example"]   # the same addresses the Access policy allows
 
 [access.service_tokens]   # only with the machines application
 "0123456789abcdef.access" = "read"
 ```
+
+Both checks apply: the Access policy decides who can sign in at Cloudflare, and `access.people` decides whom the server serves. To add someone, add them to both.
 
 Reload the config or restart the service:
 
