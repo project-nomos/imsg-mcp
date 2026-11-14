@@ -69,7 +69,7 @@ jobs:
         run: |
           dist/imsg-mcp version
           dist/imsg-mcp --help
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: imsg-mcp-darwin-arm64-unsigned
           path: dist/imsg-mcp
