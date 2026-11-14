@@ -24,14 +24,23 @@ sudo scripts/host-setup.sh --apply  # also apply the power settings
 - **Screen Sharing** on (System Settings → General → Sharing), for setup and for approving macOS permission prompts.
 - **FileVault:** automatic login requires FileVault to be off. That gives unattended recovery after a power cut but leaves message copies unencrypted on disk. Decide deliberately ([Open decisions](architecture.md#open-decisions)).
 
+**Running as your own user instead.** On a Mac where you are already signed in to Messages, you can run the service as yourself: pass `--user <you>` to the scripts below and skip creating `imsgbot`. It is quicker (no second Apple ID sign-in) and works with FileVault on. The trade-offs: the server runs under your account rather than a non-admin one, so a compromised server would have more reach; and with FileVault on, someone has to unlock the Mac after a power cut before anything starts.
+
 ## 2. Software
 
 ```bash
-brew install steipete/tap/imsg cloudflared
-brew pin imsg        # upgrade imsg deliberately, then run the selftest
+brew install steipete/tap/imsg cloudflared oven-sh/bun/bun
+brew pin steipete/tap/imsg   # upgrade imsg deliberately, then run the selftest
 ```
 
 Keep `cloudflared` on Homebrew's latest; the tunnel is outbound-only, so updates carry little risk.
+
+**If `imsg` is already on the Mac from another package** (check with `ls -l "$(command -v imsg)"`; it may point into another formula's Cellar), that copy changes whenever the other package upgrades. Install the official formula next to it anyway: `brew install steipete/tap/imsg` reports that its link step failed, which is expected and harmless. Then pin it and point the server at it in `config.toml`:
+
+```toml
+[imsg]
+path = "/opt/homebrew/opt/imsg/bin/imsg"
+```
 
 ## 3. Code signing
 
@@ -44,7 +53,14 @@ macOS ties privacy grants (Full Disk Access, Automation) to the **code signature
   3. Create it in the login keychain of the account you build with.
   4. Check it is usable: `security find-identity -v -p codesigning`.
 
-Keep the certificate (export it with its private key to your password manager). If you lose it, the next build has a different signature and you must grant the permissions again.
+- **a self-signed identity without a GUI** (useful when you manage the Mac over SSH): run `scripts/make-signing-identity.sh` once, in a Terminal on the Mac's screen. It creates the identity in its own keychain (`~/Library/Keychains/imsg-mcp-signing.keychain-db`, password in the `.pass` file next to it), not in your search list. macOS shows one password dialog to trust the certificate; that dialog cannot appear over SSH, which is why this one step needs the screen. After that, signing works over SSH:
+
+  ```bash
+  IMSG_MCP_SIGN_KEYCHAIN=~/Library/Keychains/imsg-mcp-signing.keychain-db \
+    scripts/sign.sh "imsg-mcp local signing"
+  ```
+
+Keep the certificate (export it with its private key to your password manager, or back up the keychain and its `.pass` file). If you lose it, the next build has a different signature and you must grant the permissions again.
 
 ## 4. Build and install
 
@@ -64,10 +80,10 @@ sudo scripts/install.sh --user imsgbot
 - creates `~imsgbot/Library/Application Support/imsg-mcp/config.toml` (mode 0600) if missing;
 - writes `~imsgbot/Library/LaunchAgents/ai.mynomos.imsg-mcp.plist` and loads it into `imsgbot`'s GUI session. Pass `--label` to use a different launchd label.
 
-| Service               | Kind         | Runs as   | Behaviour                                                                                 |
-| --------------------- | ------------ | --------- | ----------------------------------------------------------------------------------------- |
-| `ai.mynomos.imsg-mcp` | LaunchAgent  | `imsgbot` | `RunAtLoad`, `KeepAlive`, listens on `127.0.0.1:8787` only                                |
-| `cloudflared`         | LaunchDaemon | root      | Installed with `cloudflared service install <token>` (see [cloudflare.md](cloudflare.md)) |
+| Service               | Kind         | Runs as   | Behaviour                                                                                                                                                                                                   |
+| --------------------- | ------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai.mynomos.imsg-mcp` | LaunchAgent  | `imsgbot` | `RunAtLoad`, `KeepAlive`, listens on `127.0.0.1:8787` only                                                                                                                                                  |
+| `cloudflared`         | LaunchDaemon | root      | Installed with `cloudflared service install <token>` (see [cloudflare.md](cloudflare.md)), or a LaunchAgent for a [locally managed tunnel](cloudflare.md#alternative-a-locally-managed-tunnel-without-root) |
 
 ## 5. Configure
 

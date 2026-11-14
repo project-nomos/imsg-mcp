@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/make-signing-identity.sh`: a self-signed code-signing identity in its own keychain, so builds can be signed over SSH; `scripts/sign.sh` uses it through `IMSG_MCP_SIGN_KEYCHAIN`.
+- `deploy/launchd/ai.mynomos.imsg-tunnel.plist` and docs for a locally managed tunnel that runs as your user, with no root.
+- Docs for running the service as your own user, and for a Mac where `imsg` already comes from another Homebrew package.
+
 ## [0.1.0] - 2026-11-13
 
 First release.
