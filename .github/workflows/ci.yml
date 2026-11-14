@@ -25,7 +25,7 @@ jobs:
         # The suite uses a stub imsg, so it runs on Linux too; macOS covers the real platform.
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -40,7 +40,7 @@ jobs:
     runs-on: macos-latest
     needs: check
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -59,7 +59,7 @@ jobs:
     runs-on: macos-latest
     needs: check
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
