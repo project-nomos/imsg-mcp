@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent for a locally managed Cloudflare Tunnel that runs as the same user as imsg-mcp
+  (see "A locally managed tunnel without root" in docs/cloudflare.md). Replace __HOME__, save as
+  ~/Library/LaunchAgents/ai.mynomos.imsg-tunnel.plist, and load it only after the Access
+  applications exist:  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ai.mynomos.imsg-tunnel.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.mynomos.imsg-tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/cloudflared</string>
+    <string>tunnel</string>
+    <string>--no-autoupdate</string>
+    <string>--config</string>
+    <string>__HOME__/.cloudflared/imsg-mcp.yml</string>
+    <string>run</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/imsg-mcp/cloudflared.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/imsg-mcp/cloudflared.log</string>
+</dict>
+</plist>

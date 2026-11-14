@@ -47,7 +47,7 @@ Manual steps (docs/mac-mini-setup.md has the details):
   [ ] As imsgbot: sign in to Messages; add Messages to Login Items
   [ ] On the iPhone: Settings > Messages > Text Message Forwarding > enable this Mac (for SMS)
   [ ] System Settings > General > Sharing > Screen Sharing: on (for remote setup and grants)
-  [ ] brew install steipete/tap/imsg cloudflared && brew pin imsg
+  [ ] brew install steipete/tap/imsg cloudflared oven-sh/bun/bun && brew pin steipete/tap/imsg
   [ ] Build, sign and install imsg-mcp: scripts/build.sh, scripts/sign.sh, sudo scripts/install.sh --user imsgbot
   [ ] Grant the binary Full Disk Access and Automation > Messages (as imsgbot)
   [ ] Install the Cloudflare tunnel: sudo cloudflared service install <token>

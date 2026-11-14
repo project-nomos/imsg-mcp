@@ -26,7 +26,20 @@ Create a tunnel managed from the dashboard, then install it on the Mac.
 
    The tunnel's catch-all stays `http_status:404`. Do **not** publish the health port (8788).
 
-Use `127.0.0.1` rather than `localhost`: the server listens on IPv4 loopback only. No router port forwarding and no inbound firewall rule are needed. (A locally-managed tunnel works too; see [`deploy/cloudflared/config.example.yml`](../deploy/cloudflared/config.example.yml).)
+Use `127.0.0.1` rather than `localhost`: the server listens on IPv4 loopback only. No router port forwarding and no inbound firewall rule are needed.
+
+### Alternative: a locally managed tunnel without root
+
+Instead of a dashboard tunnel, you can create the tunnel from the Mac and run `cloudflared` as the same user as the server. Nothing runs as root, which matters with Homebrew: a root LaunchDaemon would execute a `cloudflared` binary your own user can overwrite, so anything running as that user could gain root.
+
+```bash
+cloudflared tunnel login        # prints a link; open it, pick your zone, click Authorize (about 8 minutes to do it)
+cloudflared tunnel create mac-mini
+cloudflared tunnel route dns mac-mini imsg.example.com
+cloudflared tunnel route dns mac-mini imsg-agent.example.com
+```
+
+Copy [`deploy/cloudflared/config.example.yml`](../deploy/cloudflared/config.example.yml) to `~/.cloudflared/imsg-mcp.yml`, fill in the tunnel id and credentials path that `tunnel create` printed, and check it with `cloudflared tunnel --config ~/.cloudflared/imsg-mcp.yml ingress validate`. Then install [`deploy/launchd/ai.mynomos.imsg-tunnel.plist`](../deploy/launchd/ai.mynomos.imsg-tunnel.plist) as a LaunchAgent (replace `__HOME__`), but load it only after the Access applications below exist, so the hostnames are never reachable without Access in front.
 
 ## 2. Access application for people (Managed OAuth)
 

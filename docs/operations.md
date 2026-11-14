@@ -96,11 +96,11 @@ jq -c 'select(.tool == "send_message")' ~/Library/Logs/imsg-mcp/audit.jsonl
 - **imsg:**
 
   ```bash
-  brew unpin imsg && brew upgrade imsg
+  brew unpin steipete/tap/imsg && brew upgrade steipete/tap/imsg
   sudo launchctl kickstart -k gui/$(id -u imsgbot)/ai.mynomos.imsg-mcp
   # as imsgbot:
   /usr/local/libexec/imsg-mcp/imsg-mcp selftest --launchd
-  brew pin imsg
+  brew pin steipete/tap/imsg
   ```
 
   `get_status` shows both the running and the installed imsg version, so you can tell when a restart is pending.
@@ -109,6 +109,8 @@ jq -c 'select(.tool == "send_message")' ~/Library/Logs/imsg-mcp/audit.jsonl
 
   ```bash
   scripts/build.sh && scripts/sign.sh "imsg-mcp local signing"
+  # (identity from scripts/make-signing-identity.sh? prefix sign.sh with
+  #  IMSG_MCP_SIGN_KEYCHAIN=~/Library/Keychains/imsg-mcp-signing.keychain-db)
   sudo scripts/update.sh --user imsgbot
   ```
 

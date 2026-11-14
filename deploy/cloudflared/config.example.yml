@@ -5,8 +5,10 @@
 # Both hostnames reach the same local server. Cloudflare Access sits in front of each:
 #   imsg.example.com        people (Managed OAuth): Claude web, desktop, mobile, Claude Code
 #   imsg-agent.example.com  machines (service tokens): Agent SDK and other headless agents
-tunnel: mac-mini
-credentials-file: /etc/cloudflared/mac-mini.json
+# Use the id and credentials file that `cloudflared tunnel create mac-mini` printed. For the
+# no-root setup (a LaunchAgent, see docs/cloudflare.md), keep both in your ~/.cloudflared.
+tunnel: <tunnel-id>
+credentials-file: /Users/<you>/.cloudflared/<tunnel-id>.json
 
 ingress:
   - hostname: imsg.example.com
