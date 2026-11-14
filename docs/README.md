@@ -12,10 +12,12 @@ Start with the [project README](../README.md) for what this is and a quick start
 ## Using it
 
 - [Tool reference](tools.md): inputs, outputs, cursors, errors.
+- [Agent plugin](../plugins/imsg-mcp/README.md): the `imessage` skill and server entry for Codex, Cursor, VS Code, GitHub Copilot, Kiro and Claude Code.
 
 ## Running it
 
 - [Security and guardrails](security.md): threat model, prompt injection, audit log, kill switches.
+- [Privacy](privacy.md): what the server reads, what it keeps, where data goes.
 - [Operations](operations.md): health, heartbeat, logs, failure modes, updates.
 - [Troubleshooting](troubleshooting.md)
 - [Testing and acceptance](testing.md): test layers, the selftest, the acceptance checklist.

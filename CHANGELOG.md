@@ -10,6 +10,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - `deploy/launchd/ai.mynomos.imsg-tunnel.plist` and docs for a locally managed tunnel that runs as your user, with no root.
 - Docs for running the service as your own user, and for a Mac where `imsg` already comes from another Homebrew package.
 - Docs: why remote mode uses Cloudflare Access and which alternatives were considered (architecture.md), a README FAQ on costs, what each response code from the hostname means, and the security cost of running as your own user.
+- Agent plugin in `plugins/imsg-mcp`: an `imessage` skill (finding chats, catching up with cursors, treating message text as untrusted, showing the exact draft before any send) plus the MCP server entry. It is packaged both as an [Agent Plugins 1.0](https://agent-plugins.org/) package and as a Claude Code plugin with a marketplace in `.claude-plugin/`, which asks for your server URL when you enable it. Tests validate it against the official Agent Plugins schemas.
+- `docs/privacy.md`: what the server reads, what it keeps and for how long, and where data goes.
+
+### Security
+
+- Dev dependencies: eslint 10.15.0, and an override that forces minimatch 11 for [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) (lint tooling only; not part of the server binary). `bun audit` reports no vulnerabilities. Runtime dependencies, Bun 1.4.4 and imsg 0.21.0 were already current. TypeScript stays on 6.x until typescript-eslint supports 7.
 
 ### Changed
 

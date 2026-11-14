@@ -1,0 +1,15 @@
+{
+  "name": "imsg-mcp",
+  "description": "Plugins from the imsg-mcp project: iMessage and SMS for AI agents through a server on your own Mac.",
+  "owner": {
+    "name": "Project Nomos",
+    "url": "https://github.com/project-nomos"
+  },
+  "plugins": [
+    {
+      "name": "imsg-mcp",
+      "source": "./plugins/imsg-mcp",
+      "description": "iMessage and SMS for AI agents: read, search and, with your approval, send texts through imsg-mcp running on your own Mac."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "imsg-mcp",
+  "version": "0.1.0",
+  "description": "iMessage and SMS for AI agents: read, search and, with your approval, send texts through imsg-mcp running on your own Mac.",
+  "author": {
+    "name": "Project Nomos",
+    "url": "https://github.com/project-nomos"
+  },
+  "homepage": "https://github.com/project-nomos/imsg-mcp",
+  "repository": "https://github.com/project-nomos/imsg-mcp",
+  "license": "MIT",
+  "keywords": ["imessage", "sms", "messages", "texting", "macos", "mcp", "personal-assistant"],
+  "documentationUrl": "https://github.com/project-nomos/imsg-mcp/tree/main/docs",
+  "supportUrl": "https://github.com/project-nomos/imsg-mcp/issues",
+  "privacyPolicyUrl": "https://github.com/project-nomos/imsg-mcp/blob/main/docs/privacy.md",
+  "userConfig": {
+    "server_url": {
+      "type": "string",
+      "title": "imsg-mcp server URL",
+      "description": "Your server's MCP endpoint behind Cloudflare Access, such as https://imsg.example.com/mcp",
+      "required": true
+    }
+  }
+}

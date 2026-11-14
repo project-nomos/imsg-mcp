@@ -1,0 +1,1 @@
+These are unmodified copies of the Agent Plugins 1.0.0 JSON schemas, from <https://agent-plugins.org/schemas/1.0.0/> ([source repository](https://github.com/agentplugins/agent-plugins-spec)). They are licensed under the Apache License 2.0; see `LICENSE-Apache-2.0.txt`. `test/unit/plugin.test.ts` validates `plugins/imsg-mcp` against them without network access.
