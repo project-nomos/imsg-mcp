@@ -12,6 +12,8 @@ credentials-file: /Users/<you>/.cloudflared/<tunnel-id>.json
 ingress:
   - hostname: imsg.example.com
     service: http://127.0.0.1:8787
+  # Only once the machines Access application protects it (docs/cloudflare.md, step 3).
+  # Without that application, delete these two lines so the hostname falls through to 404.
   - hostname: imsg-agent.example.com
     service: http://127.0.0.1:8787
   # Everything else, including the health port, is refused.
