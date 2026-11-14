@@ -77,19 +77,19 @@ jq -c 'select(.tool == "send_message")' ~/Library/Logs/imsg-mcp/audit.jsonl
 
 ## Failure modes
 
-| Failure                                               | How you notice                                                                             | Recovery                                                                                                                                                |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `imsg` child crashes                                  | Child exit in `server.log`                                                                 | Automatic restart with backoff (1 s doubling to 30 s); the watch resubscribes from the cursor                                                           |
-| Messages.app quits                                    | `/healthz`, a failed send                                                                  | The server runs `open -a Messages`; a send that failed because of it is retried once                                                                    |
-| Full Disk Access lost after a rebuild or macOS update | Tool errors mention Full Disk Access; heartbeat stops                                      | Re-grant to the signed binary over Screen Sharing; the server restarts imsg to pick it up                                                               |
-| Messages signed out or asking for Apple ID re-auth    | Failed sends; heartbeat may stop                                                           | Sign in again over Screen Sharing                                                                                                                       |
-| Power outage                                          | Heartbeat gap                                                                              | Auto-restart and automatic login bring everything back (blocked if FileVault is on)                                                                     |
-| Tunnel down                                           | Tunnel status in the Zero Trust dashboard; heartbeat continues (it is outbound)            | `cloudflared` restarts itself                                                                                                                           |
-| Watch falls behind                                    | Sync check (`watch.sync.behind`, warning in `server.log`)                                  | Automatic resubscribe from the saved cursor                                                                                                             |
-| `imsg` child stops answering                          | Calls time out; `consecutive_timeouts` in `/healthz`                                       | Killed and restarted after three timeouts in a row                                                                                                      |
-| A row cannot be written to `state.db` (disk full)     | `watch notification failed` in `server.log`; watch not subscribed                          | Cursor stays put; resubscribes with a growing delay until the write succeeds, then replays the row                                                      |
-| Sync check fails                                      | `/healthz` reports `sync check failed`; heartbeat stops                                    | Retried after a minute; healthy again once a check succeeds                                                                                             |
-| chat.db replaced (new Mac, restore)                   | Warning "saved cursor is far ahead of the newest message" in `server.log` and `get_status` | Stop the server, delete `state.db`, start it (it backfills the last 24 hours). Never done automatically, because iCloud history downloads look the same |
+| Failure                                               | How you notice                                                                                                      | Recovery                                                                                                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `imsg` child crashes                                  | Child exit in `server.log`                                                                                          | Automatic restart with backoff (1 s doubling to 30 s); the watch resubscribes from the cursor                                                           |
+| Messages.app quits                                    | `/healthz`, a failed send                                                                                           | The server runs `open -a Messages`; a send that failed because of it is retried once                                                                    |
+| Full Disk Access lost after a rebuild or macOS update | Tool errors mention Full Disk Access; heartbeat stops                                                               | Re-grant to the signed binary over Screen Sharing; the server restarts imsg to pick it up                                                               |
+| Messages signed out or asking for Apple ID re-auth    | Failed sends; heartbeat may stop                                                                                    | Sign in again over Screen Sharing                                                                                                                       |
+| Power outage                                          | Heartbeat gap                                                                                                       | Auto-restart and automatic login bring everything back (blocked if FileVault is on; for planned restarts use `sudo fdesetup authrestart`)               |
+| Tunnel down                                           | Hostnames answer `530`; `cloudflared tunnel info mac-mini` lists no connector; heartbeat continues (it is outbound) | launchd restarts `cloudflared`; see `~/Library/Logs/imsg-mcp/cloudflared.log`                                                                           |
+| Watch falls behind                                    | Sync check (`watch.sync.behind`, warning in `server.log`)                                                           | Automatic resubscribe from the saved cursor                                                                                                             |
+| `imsg` child stops answering                          | Calls time out; `consecutive_timeouts` in `/healthz`                                                                | Killed and restarted after three timeouts in a row                                                                                                      |
+| A row cannot be written to `state.db` (disk full)     | `watch notification failed` in `server.log`; watch not subscribed                                                   | Cursor stays put; resubscribes with a growing delay until the write succeeds, then replays the row                                                      |
+| Sync check fails                                      | `/healthz` reports `sync check failed`; heartbeat stops                                                             | Retried after a minute; healthy again once a check succeeds                                                                                             |
+| chat.db replaced (new Mac, restore)                   | Warning "saved cursor is far ahead of the newest message" in `server.log` and `get_status`                          | Stop the server, delete `state.db`, start it (it backfills the last 24 hours). Never done automatically, because iCloud history downloads look the same |
 
 ## Updates
 
@@ -116,6 +116,13 @@ jq -c 'select(.tool == "send_message")' ~/Library/Logs/imsg-mcp/audit.jsonl
 
   `update.sh` refuses a binary whose signing requirement differs from the installed one (macOS would drop the grants) unless you pass `--force`. Same signature means macOS keeps Full Disk Access and Automation.
 
+- **cloudflared:** the tunnel's LaunchAgent turns off `cloudflared`'s own updater, so update it with Homebrew and restart the tunnel:
+
+  ```bash
+  brew upgrade cloudflared
+  sudo launchctl kickstart -k gui/$(id -u imsgbot)/ai.mynomos.imsg-tunnel
+  ```
+
 - **macOS:** apply updates by hand on a day you can check the heartbeat afterwards, then run the selftest.
 
 ## Everyday commands
@@ -126,6 +133,8 @@ sudo launchctl print gui/$UID_BOT/ai.mynomos.imsg-mcp | head -20        # state,
 sudo launchctl kickstart -k gui/$UID_BOT/ai.mynomos.imsg-mcp           # restart
 sudo launchctl kill SIGHUP gui/$UID_BOT/ai.mynomos.imsg-mcp            # reload config
 sudo launchctl bootout gui/$UID_BOT/ai.mynomos.imsg-mcp                # stop (kill switch 3)
+sudo launchctl print gui/$UID_BOT/ai.mynomos.imsg-tunnel | head -20     # the tunnel
+cloudflared tunnel info mac-mini                                       # its connections
 curl -s http://127.0.0.1:8788/healthz | jq .
 ```
 

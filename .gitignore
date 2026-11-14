@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 *.tsbuildinfo
+# Left behind by an interrupted `bun build --compile`
+.*.bun-build
 
 # Local config and runtime state (never commit)
 config.toml

@@ -4,8 +4,8 @@ Start with the [project README](../README.md) for what this is and a quick start
 
 ## Setting it up
 
-1. [Mac mini setup](mac-mini-setup.md): the bot user, Messages, power, signing, install, macOS permissions, smoke test.
-2. [Cloudflare Tunnel and Access](cloudflare.md): the tunnel, the people app (Managed OAuth) and the machine app (service tokens).
+1. [Mac mini setup](mac-mini-setup.md): the bot user (or your own), Messages, power, signing, install, macOS permissions, smoke test.
+2. [Cloudflare Tunnel and Access](cloudflare.md): the tunnel (a few `cloudflared` commands), the people app (Managed OAuth), the optional machine app (service tokens), and what each response code means.
 3. [Connecting clients](clients.md): Claude web, desktop and mobile, Claude Duet, Claude Code, the Agent SDK, and local stdio mode.
 4. [Configuration](configuration.md): every config key, roles, reloads.
 
@@ -22,4 +22,4 @@ Start with the [project README](../README.md) for what this is and a quick start
 
 ## Design
 
-- [Architecture](architecture.md): request path, the imsg bridge, the inbound store and cursors, sending, open decisions, milestones.
+- [Architecture](architecture.md): request path, why Cloudflare Access (and the alternatives), the imsg bridge, the inbound store and cursors, sending, open decisions, milestones.

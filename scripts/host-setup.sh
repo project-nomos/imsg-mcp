@@ -50,5 +50,6 @@ Manual steps (docs/mac-mini-setup.md has the details):
   [ ] brew install steipete/tap/imsg cloudflared oven-sh/bun/bun && brew pin steipete/tap/imsg
   [ ] Build, sign and install imsg-mcp: scripts/build.sh, scripts/sign.sh, sudo scripts/install.sh --user imsgbot
   [ ] Grant the binary Full Disk Access and Automation > Messages (as imsgbot)
-  [ ] Install the Cloudflare tunnel: sudo cloudflared service install <token>
+  [ ] Cloudflare (docs/cloudflare.md): cloudflared tunnel login, tunnel create, route dns;
+      then the Access application; then load the tunnel LaunchAgent
 STEPS
