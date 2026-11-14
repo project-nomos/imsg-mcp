@@ -15,7 +15,7 @@ jobs:
     name: Build and publish
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v7.0.1
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
