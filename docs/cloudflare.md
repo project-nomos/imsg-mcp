@@ -63,7 +63,7 @@ In the Cloudflare One dashboard (as of November 2026):
 4. **Authentication:** leave **Accept all available identity providers** on. A new organization signs you in with a one-time PIN: a code sent to your email. If you want MFA, add an identity provider with MFA (for example Google) under **Integrations → Identity providers**.
 5. **Additional settings** tab → turn on **Managed OAuth** and expand it:
    - **Allow localhost clients** and **Allow loopback clients**: on (the default). Claude Code signs in through a loopback redirect on a random port.
-   - **Allowed redirect URIs**: `https://claude.ai/api/mcp/auth_callback`, the callback of Claude on the web, desktop and mobile.
+   - **Allowed redirect URIs**: `https://claude.ai/api/mcp/auth_callback`, the callback of Claude on the web, desktop and mobile. Add other clients' callbacks from [the table below](#redirect-uris-for-other-clients) as you need them.
    - **Grant session duration**: 2 weeks. **Access token lifetime**: leave the default, 15 minutes.
 
    Dynamic client registration has no switch of its own: Managed OAuth always offers it, restricted to the redirect URIs above and to localhost and loopback clients.
@@ -73,10 +73,24 @@ In the Cloudflare One dashboard (as of November 2026):
 With Managed OAuth on, Access answers unauthenticated requests with `401`, even before the tunnel runs. The `WWW-Authenticate` header points at protected-resource metadata, which also tells you your team domain:
 
 ```bash
-curl -s https://imsg.example.com/.well-known/oauth-protected-resource/mcp   # "team_domain": "<name>.cloudflareaccess.com"
+curl -s https://imsg.example.com/.well-known/oauth-protected-resource/mcp   # "authorization_servers": ["https://<name>.cloudflareaccess.com"]
 ```
 
 Without Managed OAuth, you get a browser redirect, which agents cannot follow. Cloudflare requires clients that support RFC 8707 resource indicators, so confirm sign-in works from each Claude surface during rollout.
+
+### Redirect URIs for other clients
+
+Managed OAuth lets a client finish signing in only at a redirect URI on the allowed list, or at a localhost or loopback address. Desktop clients such as Claude Code, Codex and VS Code use loopback, so they need nothing more. Cursor's desktop app documents a localhost callback, while Cloudflare's own example lists `cursor://anysphere.cursor-mcp/oauth/callback`; if Cursor's sign-in fails, add that exact URI (custom schemes must match exactly and cannot use wildcards). Clients that sign in through the web need their callback added under **Allowed redirect URIs**, where HTTPS paths may end in `/*` to match every sub-path ([Cloudflare](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/)):
+
+| Client                                        | Redirect URI to allow                                                                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude on the web, desktop and mobile, Cowork | `https://claude.ai/api/mcp/auth_callback` ([Anthropic](https://claude.com/docs/connectors/building/authentication))                                                    |
+| ChatGPT, including dots                       | `https://chatgpt.com/connector/oauth/*` ([OpenAI](https://developers.openai.com/plugins/build/auth))                                                                   |
+| Cursor on the web and Cursor Agents           | `https://www.cursor.com/agents/mcp/oauth/callback` ([Cursor](https://cursor.com/docs/context/mcp))                                                                     |
+| VS Code for the web                           | `https://vscode.dev/redirect` ([VS Code](https://code.visualstudio.com/api/extension-guides/ai/mcp))                                                                   |
+| Perplexity                                    | `https://www.perplexity.ai/rest/connections/oauth_callback` ([Perplexity](https://www.perplexity.ai/help-center/en/articles/13915507-adding-custom-remote-connectors)) |
+
+ChatGPT uses a fixed `https://chatgpt.com/connector_platform_oauth_redirect` only with authorization servers that send the RFC 9207 `iss` parameter, and Cloudflare Access does not advertise it, so ChatGPT falls back to a callback unique to each connector; the `/*` entry covers it. Each added URI lets that client's sign-in complete; who may sign in is still decided by the application's policy.
 
 **What about MCP Portals?** Cloudflare One also has **Access controls → MCP Portals**. Its **MCP servers** tab registers a server so that Cloudflare connects to it as a client and offers its tools through a portal URL. It does not protect the server's own hostname. `imsg-mcp` accepts only requests signed by the Access application above, so start with that application. A portal would add a second hop and a second sign-in, and the server would see the portal's credentials instead of you.
 

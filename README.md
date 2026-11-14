@@ -1,8 +1,10 @@
 # imsg-mcp
 
-An [MCP](https://modelcontextprotocol.io) server that lets AI assistants read and send your iMessage and SMS texts through a Mac you control, with guardrails the model cannot talk its way around.
+Let your AI assistant read your iMessage and SMS conversations and send the replies you approve.
 
-Point Claude (on the web, desktop or phone), Claude Code or an Agent SDK agent at it, and the assistant can list your chats, read history, catch up on what arrived since it last looked, search, and (only if you turn it on) send texts from your number. It is built for proactive assistants such as [Claude Duet](https://claude.com/product/claude-duet), which polls connected accounts and asks before sending (whether Duet picks up custom connectors is covered in [docs/clients.md](docs/clients.md#claude-duet)).
+imsg-mcp is an open-source [MCP](https://modelcontextprotocol.io) server that runs on a Mac you own. Claude, ChatGPT, Codex, Cursor and other MCP clients connect to it from any device. They can list your chats, read and search history, and catch up on what arrived since they last looked. Sending stays off until you turn it on, and then the server decides who can be texted and how often.
+
+It suits proactive assistants such as [Claude Duet](https://claude.com/product/claude-duet) and [dots in ChatGPT](https://learn.chatgpt.com/docs/dots), which check your accounts on their own and ask before they act. Both are new, and their support for self-hosted servers is still limited; [Works with](#works-with) has the details.
 
 ```
 You: "What are my latest texts?"
@@ -17,6 +19,20 @@ Claude → "I'll send 'No rush!' to Sam (+1 415 555 0123). OK?"  → you approve
 > [!WARNING]
 > Anyone can text your number, and no server can stop a model from being influenced by a malicious message. That is why sending is **off by default**, limited to an **allowlist** checked on the server, **rate limited**, **audited**, and should always require **your approval** in the client. Read [docs/security.md](docs/security.md) before you turn sending on.
 
+## Works with
+
+| Assistant                                              | How it connects                                                                                            | Status                                                                                                                              |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Claude on the web, desktop and mobile, and Cowork      | Custom connector: **Customize > Connectors > Add > Add custom connector**                                  | The main target                                                                                                                     |
+| Claude Code                                            | The [agent plugin](plugins/imsg-mcp/README.md) (skill and server) or `claude mcp add`                      | Tested                                                                                                                              |
+| [Claude Duet](https://claude.com/product/claude-duet)  | The connectors and skills on your Claude account                                                           | Unconfirmed. Anthropic does not say whether Duet reaches custom connectors, and an early review found its scheduled runs could not. |
+| ChatGPT                                                | **Plugins > + > Add custom MCP server**, after allowing ChatGPT's redirect URI in Cloudflare Access        | Should work, untested. OpenAI reportedly limits Pro accounts to read-only use of custom servers.                                    |
+| [dots in ChatGPT](https://learn.chatgpt.com/docs/dots) | The plugins installed on your ChatGPT account                                                              | Unconfirmed. OpenAI does not say whether plugins made from custom servers count.                                                    |
+| Codex, Cursor, VS Code, GitHub Copilot, Kiro           | The [agent plugin](plugins/imsg-mcp/README.md) for the skill, and the client's MCP settings for the server | Should work, untested                                                                                                               |
+| Gemini, Perplexity                                     | Custom connector, after allowing the client's redirect URI                                                 | Untested                                                                                                                            |
+
+Setup for each is in [docs/clients.md](docs/clients.md). Tell us how it goes in an [issue](https://github.com/project-nomos/imsg-mcp/issues), and we'll update this table.
+
 ## Features
 
 - **Six tools:** `list_chats`, `get_messages`, `check_new_messages`, `search_messages`, `get_status`, and `send_message` (registered only when sending is enabled).
@@ -24,6 +40,7 @@ Claude → "I'll send 'No rush!' to Sam (+1 415 555 0123). OK?"  → you approve
 - **Fenced sending.** Off by default; recipient allowlist (every member of a group must be allowed); length limit; sliding-window rate limit shared by all clients; sends confirmed against Messages history; before-and-after audit records.
 - **Prompt-injection hygiene.** Every result that contains third-party text is flagged `untrusted_content` with a note telling the model to treat it as data.
 - **Read scope.** Limit what the assistant can see to specific chats or people.
+- **Agent plugin.** An `imessage` skill teaches agents to catch up with cursors, treat message text as untrusted, and show you every draft before sending. It ships for [Agent Plugins](https://agent-plugins.org/) clients and for Claude Code, where one line installs the skill and the server: `/plugin install imsg-mcp --marketplace project-nomos/imsg-mcp`. See [plugins/imsg-mcp](plugins/imsg-mcp/README.md).
 - **Two ways to run:**
   - **Remote mode** (the main design): a private server on an always-on Mac, reachable from every Claude surface through Cloudflare Tunnel, with Cloudflare Access doing OAuth sign-in. No open ports.
   - **Local mode**: `imsg-mcp stdio` for Claude Desktop or Claude Code on the same Mac. No network at all.
@@ -121,7 +138,7 @@ This is the deployment the project is designed around: a dedicated Mac that keep
 
    [docs/cloudflare.md](docs/cloudflare.md)
 
-4. **Connect your clients**: Claude custom connector, Claude Code, Agent SDK. [docs/clients.md](docs/clients.md)
+4. **Connect your clients**: Claude, ChatGPT, Claude Code, Codex and other MCP clients, plus the agent plugin and its skill. [docs/clients.md](docs/clients.md)
 5. **Run the acceptance checklist** before turning sending on. [docs/testing.md](docs/testing.md#acceptance-checklist)
 
 ## Tools
@@ -217,6 +234,8 @@ The integration tests run the real server against `test/fixtures/stub-imsg.ts`, 
 
 **Why not let the server handle sign-in itself?** It could act as its own OAuth server, which would remove the Zero Trust account. The trade-off is that strangers' requests would then reach the Mac, and the server's own login would be the only gate. With Access, Cloudflare stops unauthenticated traffic before it reaches the Mac and runs the OAuth flow that Claude's connectors use; MFA comes from your identity provider. Details: [docs/architecture.md](docs/architecture.md#why-cloudflare-access).
 
+**How does it compare with OpenAI's Apple Messages plugin?** As of November 2026, OpenAI's plugin runs inside the ChatGPT desktop app on an Apple Silicon Mac, and in Codex. imsg-mcp runs as a server on an always-on Mac, so assistants in the cloud and on your phone can reach it, from any vendor whose client speaks MCP. It also keeps the allowlist, rate limit and audit log on the server, where a manipulated model cannot change them.
+
 **Can I run it on the Mac I use every day?** Yes. Local mode needs nothing else. Remote mode can run as your own user instead of a bot user; [docs/mac-mini-setup.md](docs/mac-mini-setup.md#1-the-machine) lists the trade-offs.
 
 ## Acknowledgments
@@ -225,4 +244,6 @@ The integration tests run the real server against `test/fixtures/stub-imsg.ts`, 
 
 ## License
 
-[MIT](LICENSE). Not affiliated with Apple or Anthropic. iMessage and Messages are trademarks of Apple Inc.
+[MIT](LICENSE).
+
+imsg-mcp is an independent project. It is not affiliated with or endorsed by Apple, Anthropic, OpenAI, Google, Microsoft or Cloudflare. iMessage, Messages, Claude, ChatGPT and the other product names here are trademarks of their owners, used only to say what the server works with.

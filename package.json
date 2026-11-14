@@ -1,7 +1,7 @@
 {
   "name": "imsg-mcp",
   "version": "0.1.0",
-  "description": "MCP server that lets AI assistants read and send iMessage/SMS through a Mac, with send guardrails and Cloudflare Access authentication",
+  "description": "MCP server and agent plugin that let AI assistants such as Claude, ChatGPT and Codex read and send iMessage/SMS through a Mac you control, with send guardrails and Cloudflare Access sign-in",
   "license": "MIT",
   "author": "Project Nomos",
   "homepage": "https://github.com/project-nomos/imsg-mcp#readme",
@@ -21,7 +21,16 @@
     "macos",
     "claude",
     "cloudflare-access",
-    "imsg"
+    "imsg",
+    "claude-duet",
+    "chatgpt",
+    "openai-dots",
+    "codex",
+    "cursor",
+    "github-copilot",
+    "agent-plugins",
+    "agent-skills",
+    "ai-assistant"
   ],
   "private": true,
   "type": "module",

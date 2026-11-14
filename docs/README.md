@@ -6,13 +6,13 @@ Start with the [project README](../README.md) for what this is and a quick start
 
 1. [Mac mini setup](mac-mini-setup.md): the bot user (or your own), Messages, power, signing, install, macOS permissions, smoke test.
 2. [Cloudflare Tunnel and Access](cloudflare.md): the tunnel (a few `cloudflared` commands), the people app (Managed OAuth), the optional machine app (service tokens), and what each response code means.
-3. [Connecting clients](clients.md): Claude web, desktop and mobile, Claude Duet, Claude Code, the Agent SDK, and local stdio mode.
+3. [Connecting clients](clients.md): Claude web, desktop and mobile, Claude Duet, Claude Code, ChatGPT and dots, Codex, Cursor, VS Code, GitHub Copilot, Kiro, the Agent SDK, and local stdio mode.
 4. [Configuration](configuration.md): every config key, roles, reloads.
 
 ## Using it
 
 - [Tool reference](tools.md): inputs, outputs, cursors, errors.
-- [Agent plugin](../plugins/imsg-mcp/README.md): the `imessage` skill and server entry for Codex, Cursor, VS Code, GitHub Copilot, Kiro and Claude Code.
+- [Agent plugin](../plugins/imsg-mcp/README.md): the `imessage` skill for Claude Code, ChatGPT, Codex, Cursor, VS Code, GitHub Copilot and Kiro.
 
 ## Running it
 

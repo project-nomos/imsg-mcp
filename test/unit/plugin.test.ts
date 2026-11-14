@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 
 // The agent plugin in plugins/imsg-mcp carries two formats side by side: the portable
-// Agent Plugins 1.0.0 package (plugin.json, mcp.json, skills/) and Claude Code's own
-// files (.claude-plugin/plugin.json, .mcp.json). These tests keep both valid and in step.
+// Agent Plugins 1.0.0 package (plugin.json, skills/, and an mcp.example.json template)
+// and Claude Code's own files (.claude-plugin/plugin.json, .mcp.json). These tests keep
+// both valid and in step.
 
 const ROOT = join(import.meta.dir, "..", "..");
 const PLUGIN = join(ROOT, "plugins", "imsg-mcp");
@@ -55,13 +56,19 @@ describe("Agent Plugins package", () => {
     expect(schemaErrors("plugin", manifest)).toBe("");
   });
 
-  test("mcp.json matches the schema, targets the same version and uses HTTPS", () => {
-    const mcp = readJson<McpConfig>(PLUGIN, "mcp.json");
+  test("mcp.example.json matches the schema, targets the same version and uses HTTPS", () => {
+    const mcp = readJson<McpConfig>(PLUGIN, "mcp.example.json");
     expect(schemaErrors("mcp", mcp)).toBe("");
     expect(mcp.$schema?.replace("/mcp.schema.json", "/plugin.schema.json")).toBe(manifest.$schema);
     const servers = Object.values(mcp.mcpServers);
     expect(servers.length).toBeGreaterThan(0);
     for (const server of servers) expect(new URL(server.url ?? "").protocol).toBe("https:");
+  });
+
+  test("the published package carries no live mcp.json", () => {
+    // Every user's server has its own address, and the portable format cannot ask for it,
+    // so a shipped mcp.json would point every installation at the example host.
+    expect(existsSync(join(PLUGIN, "mcp.json"))).toBe(false);
   });
 
   test("version and license follow package.json", () => {
