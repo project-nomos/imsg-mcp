@@ -24,7 +24,17 @@ sudo scripts/host-setup.sh --apply  # also apply the power settings
 - **Screen Sharing** on (System Settings → General → Sharing), for setup and for approving macOS permission prompts.
 - **FileVault:** automatic login requires FileVault to be off. That gives unattended recovery after a power cut but leaves message copies unencrypted on disk. Decide deliberately ([Open decisions](architecture.md#open-decisions)).
 
-**Running as your own user instead.** On a Mac where you are already signed in to Messages, you can run the service as yourself: pass `--user <you>` to the scripts below and skip creating `imsgbot`. It is quicker (no second Apple ID sign-in) and works with FileVault on. The trade-offs: the server runs under your account rather than a non-admin one, so a compromised server would have more reach; and with FileVault on, someone has to unlock the Mac after a power cut before anything starts.
+**Running as your own user instead.** On a Mac where you are already signed in to Messages, you can run the service as yourself and skip creating `imsgbot`. It is quicker (no second Apple ID sign-in) and works with FileVault on. To adapt the commands below:
+
+- pass `--user <you>` to the scripts;
+- replace `imsgbot` with your username;
+- drop `sudo -u imsgbot -H`, and the `sudo` in front of `launchctl`.
+
+The trade-offs:
+
+- The server runs under your account rather than a non-admin one, so a compromised server would have more reach.
+- Anything you run can edit the config, including `imsg.path`, and the program it names runs with the server's Full Disk Access (see [security.md](security.md#running-the-service-as-your-own-user)).
+- With FileVault on, someone has to unlock the Mac after a power cut before anything starts.
 
 ## 2. Software
 
@@ -80,10 +90,12 @@ sudo scripts/install.sh --user imsgbot
 - creates `~imsgbot/Library/Application Support/imsg-mcp/config.toml` (mode 0600) if missing;
 - writes `~imsgbot/Library/LaunchAgents/ai.mynomos.imsg-mcp.plist` and loads it into `imsgbot`'s GUI session. Pass `--label` to use a different launchd label.
 
-| Service               | Kind         | Runs as   | Behaviour                                                                                                                                                                                                   |
-| --------------------- | ------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ai.mynomos.imsg-mcp` | LaunchAgent  | `imsgbot` | `RunAtLoad`, `KeepAlive`, listens on `127.0.0.1:8787` only                                                                                                                                                  |
-| `cloudflared`         | LaunchDaemon | root      | Installed with `cloudflared service install <token>` (see [cloudflare.md](cloudflare.md)), or a LaunchAgent for a [locally managed tunnel](cloudflare.md#alternative-a-locally-managed-tunnel-without-root) |
+The service starts right away. Until `access.*` is filled in (step 5), it exits at start with code 78 and launchd retries every 10 seconds. `~/Library/Logs/imsg-mcp/launchd.err.log` lists what is missing. That is expected. If you already have the Cloudflare values, you can create the config before running `install.sh`, which keeps an existing config.
+
+| Service                  | Kind        | Runs as   | Behaviour                                                                                                                                                                               |
+| ------------------------ | ----------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai.mynomos.imsg-mcp`    | LaunchAgent | `imsgbot` | `RunAtLoad`, `KeepAlive`, listens on `127.0.0.1:8787` only                                                                                                                              |
+| `ai.mynomos.imsg-tunnel` | LaunchAgent | `imsgbot` | `cloudflared` for the tunnel, loaded once Access is set up ([cloudflare.md](cloudflare.md#4-start-the-tunnel)). A tunnel managed from the dashboard runs as a root LaunchDaemon instead |
 
 ## 5. Configure
 
@@ -132,4 +144,4 @@ It reads a chat (Full Disk Access), sends to the test handle (Automation), waits
 
 ## 8. Recovery checklist
 
-After a power cut, the Mac boots, logs `imsgbot` in automatically, launchd starts `imsg-mcp` and Messages, and `cloudflared` reconnects. Watch the heartbeat to confirm. If FileVault is on, the Mac waits at the unlock screen until someone enters the password.
+After a power cut, the Mac boots, logs `imsgbot` in automatically, launchd starts `imsg-mcp` and Messages, and `cloudflared` reconnects. Watch the heartbeat to confirm. If FileVault is on, the Mac waits at the unlock screen until someone enters the password. For a planned restart with FileVault on, use `sudo fdesetup authrestart`: it unlocks the next boot once, so the Mac comes back without anyone at the keyboard.

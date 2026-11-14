@@ -9,6 +9,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - `scripts/make-signing-identity.sh`: a self-signed code-signing identity in its own keychain, so builds can be signed over SSH; `scripts/sign.sh` uses it through `IMSG_MCP_SIGN_KEYCHAIN`.
 - `deploy/launchd/ai.mynomos.imsg-tunnel.plist` and docs for a locally managed tunnel that runs as your user, with no root.
 - Docs for running the service as your own user, and for a Mac where `imsg` already comes from another Homebrew package.
+- Docs: why remote mode uses Cloudflare Access and which alternatives were considered (architecture.md), a README FAQ on costs, what each response code from the hostname means, and the security cost of running as your own user.
+
+### Changed
+
+- Docs: the tunnel is now created with `cloudflared` commands and run as a LaunchAgent of the service user, started only once Access protects the hostnames. A dashboard tunnel with a root LaunchDaemon is the alternative. The machines Access application is marked optional.
 
 ## [0.1.0] - 2026-11-13
 

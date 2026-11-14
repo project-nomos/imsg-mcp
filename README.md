@@ -40,7 +40,7 @@ flowchart LR
   end
   subgraph CF["Cloudflare"]
     A1["Access app: imsg.example.com<br/>Managed OAuth (people)"]
-    A2["Access app: imsg-agent.example.com<br/>Service tokens (machines)"]
+    A2["Access app (optional): imsg-agent.example.com<br/>Service tokens (machines)"]
     T["Tunnel (outbound only)"]
   end
   subgraph Mac["Mac mini (logged-in bot user)"]
@@ -67,7 +67,7 @@ Cloudflare Access authenticates every request and attaches a signed JWT. `imsg-m
 - macOS 14 or later, signed in to Messages (an always-on Mac mini for remote mode).
 - [`imsg`](https://github.com/steipete/imsg) 0.8.2 or later: `brew install steipete/tap/imsg`. Newer versions are used automatically when present (for example, `messages.search` makes `search_messages` faster).
 - [Bun](https://bun.sh) 1.2 or later to build (the shipped binary needs nothing installed).
-- Remote mode only: a Cloudflare account with a domain and Zero Trust.
+- Remote mode only: a domain whose DNS is on Cloudflare, and a Cloudflare Zero Trust organization for Access. The tunnel works on any plan; Zero Trust's Free plan covers up to 50 users but asks for a payment method.
 
 ## Quick start: local mode (your own Mac, 5 minutes)
 
@@ -112,9 +112,15 @@ allowlist = ["+14155550123", "friend@example.com"]
 
 This is the deployment the project is designed around: a dedicated Mac that keeps Messages open around the clock and serves every Claude surface, from your phone on cellular to headless agents.
 
-1. **Prepare the Mac**: a standard bot user with automatic login, Messages signed in, SMS forwarding, power settings. [docs/mac-mini-setup.md](docs/mac-mini-setup.md)
+1. **Prepare the Mac**: a standard bot user with automatic login (or your own user), Messages signed in, SMS forwarding, power settings. [docs/mac-mini-setup.md](docs/mac-mini-setup.md)
 2. **Build, sign and install** the binary with a stable code-signing identity so macOS privacy grants survive updates, then grant Full Disk Access and Automation to it. [docs/mac-mini-setup.md](docs/mac-mini-setup.md#4-build-and-install)
-3. **Set up Cloudflare**: one outbound tunnel, two Access applications (people with Managed OAuth, machines with service tokens). [docs/cloudflare.md](docs/cloudflare.md)
+3. **Set up Cloudflare**:
+   - an outbound tunnel, made with a few `cloudflared` commands;
+   - an Access application with Managed OAuth for people;
+   - a second Access application with service tokens, only if you run headless agents.
+
+   [docs/cloudflare.md](docs/cloudflare.md)
+
 4. **Connect your clients**: Claude custom connector, Claude Code, Agent SDK. [docs/clients.md](docs/clients.md)
 5. **Run the acceptance checklist** before turning sending on. [docs/testing.md](docs/testing.md#acceptance-checklist)
 
@@ -202,6 +208,16 @@ The integration tests run the real server against `test/fixtures/stub-imsg.ts`, 
 - No push: agents poll `check_new_messages` with a cursor.
 - No sending attachments. Inbound attachment metadata (name, type, size) is included; file contents never leave the Mac.
 - Remote mode is built for a single owner. The Messages API MCP connector is not supported (it sends only a bearer token, not Cloudflare's service-token headers).
+
+## FAQ
+
+**Do I need Cloudflare?** Not for local mode. Remote mode needs it: the server accepts only requests that Cloudflare Access has signed (it checks the JWT itself). Another tunnel, such as Tailscale Funnel or ngrok, is not enough on its own.
+
+**What does it cost?** You need a domain whose DNS is on Cloudflare. The tunnel works on any plan, including the free one. Access needs a Zero Trust organization, whose Free plan covers up to 50 users but asks for a payment method.
+
+**Why not let the server handle sign-in itself?** It could act as its own OAuth server, which would remove the Zero Trust account. The trade-off is that strangers' requests would then reach the Mac, and the server's own login would be the only gate. With Access, Cloudflare stops unauthenticated traffic before it reaches the Mac and runs the OAuth flow that Claude's connectors use; MFA comes from your identity provider. Details: [docs/architecture.md](docs/architecture.md#why-cloudflare-access).
+
+**Can I run it on the Mac I use every day?** Yes. Local mode needs nothing else. Remote mode can run as your own user instead of a bot user; [docs/mac-mini-setup.md](docs/mac-mini-setup.md#1-the-machine) lists the trade-offs.
 
 ## Acknowledgments
 

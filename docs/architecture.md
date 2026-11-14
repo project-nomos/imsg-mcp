@@ -29,11 +29,11 @@ flowchart TB
   end
   subgraph Cloudflare
     AP["Access app (people)<br/>imsg.example.com<br/>Managed OAuth"]
-    AM["Access app (machines)<br/>imsg-agent.example.com<br/>Service Auth"]
+    AM["Access app (machines, optional)<br/>imsg-agent.example.com<br/>Service Auth"]
     TUN["Tunnel 'mac-mini'"]
   end
   subgraph "Mac mini"
-    CFD["cloudflared (LaunchDaemon, root)"]
+    CFD["cloudflared (LaunchAgent, bot user)"]
     SRV["imsg-mcp (LaunchAgent, bot user)<br/>127.0.0.1:8787 /mcp<br/>127.0.0.1:8788 /healthz"]
     RPC["imsg rpc (child process)"]
     DB[("chat.db")]
@@ -62,6 +62,24 @@ For every request to `/mcp`:
 3. **Serve MCP.** A fresh MCP server is built for the request with the tools that caller may use (`send_message` only when sending is enabled and the role includes send), and the Streamable HTTP transport handles the JSON-RPC exchange in stateless mode with JSON responses. No MCP sessions are kept.
 
 `GET` and `DELETE` on `/mcp` return `405` because a stateless server has no stream or session to offer.
+
+## Why Cloudflare Access
+
+Remote mode needs three things: a public HTTPS address for a Mac behind a home router, a sign-in that Claude's connectors understand, and a way to keep strangers away from the Mac. Cloudflare covers all three:
+
+- **Tunnel:** an outbound connection from the Mac, so no ports are opened. It works on any plan, free included.
+- **Access with Managed OAuth:** Cloudflare runs the OAuth flow that Claude's connectors use against the identity provider you choose, so MFA comes from there. The flow: a `401` pointing at discovery metadata, client registration, PKCE, and short-lived tokens with refresh.
+- **Edge enforcement:** requests without a valid sign-in stop at Cloudflare and never reach the Mac. The server still verifies the Access JWT on every request, so a missing or misconfigured Access application fails closed.
+
+The cost is a Zero Trust organization. Its Free plan covers up to 50 users, but it asks for a payment method.
+
+Alternatives considered:
+
+| Option                                   | Why not, for now                                                                                                                                                                                                                                                     |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The server as its own OAuth server       | It would remove the Zero Trust account. But every request would reach the Mac, with the server's own login as the only gate, and an OAuth server is security-critical code to maintain. If it is ever added, the login should use passkeys, which cannot be phished. |
+| Another tunnel (Tailscale Funnel, ngrok) | Gives the public address but no sign-in Claude understands, so it would need the built-in OAuth server above.                                                                                                                                                        |
+| A secret URL and no sign-in              | Simplest, but anyone who ever sees the URL (in a log, a browser history or a screenshot) can read and send your texts.                                                                                                                                               |
 
 ## Components
 
@@ -128,21 +146,23 @@ If the send fails because Messages.app is not running, the server opens Messages
 
 These shape a deployment. The defaults assumed elsewhere in these docs are in the third column.
 
-| Decision                    | Options                                                                   | Assumed                                   | Why it matters                                                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Apple ID in Messages        | Your personal Apple ID, or a new one just for the agent                   | Personal                                  | Only your own Apple ID lets the assistant read your texts and send SMS from your number. It also exposes family and personal threads, so consider a narrow `read.scope`. |
-| FileVault on the Mac        | On, with a manual unlock after every reboot; or off, with automatic login | Off                                       | Off gives unattended recovery after power loss but leaves message copies unencrypted on disk. Choose on if the Mac is not physically secure.                             |
-| Hostname domain             | A company domain or a personal domain                                     | Personal                                  | Must be a zone in the Cloudflare account that runs Zero Trust. A company domain puts personal texts on company infrastructure.                                           |
-| Sign-in provider for Access | Google (with MFA), or Cloudflare one-time PIN by email                    | Google with MFA                           | One-time PIN is simpler; an identity provider adds MFA and device sessions.                                                                                              |
-| Read scope                  | All chats, or a list                                                      | All                                       | A list limits what a hijacked session or injected prompt can reach.                                                                                                      |
-| Sending at launch           | On with allowlist, or read-only first                                     | Read-only until the acceptance tests pass | Lets you watch the assistant's behaviour on real inbound texts before it can send.                                                                                       |
-| Code-signing identity       | Apple Developer ID, or a self-signed certificate on the Mac               | Self-signed; Developer ID if you have one | Either keeps macOS permission grants across rebuilds; ad-hoc signing does not.                                                                                           |
+| Decision                    | Options                                                                       | Assumed                                   | Why it matters                                                                                                                                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Apple ID in Messages        | Your personal Apple ID, or a new one just for the agent                       | Personal                                  | Only your own Apple ID lets the assistant read your texts and send SMS from your number. It also exposes family and personal threads, so consider a narrow `read.scope`.                                         |
+| Service user                | A dedicated bot user, or your own account                                     | Bot user                                  | Your own account is quicker and works with FileVault on, but a compromised server has your reach, and anything you run can change `imsg.path` ([security.md](security.md#running-the-service-as-your-own-user)). |
+| Tunnel management           | Created with `cloudflared` and run as the service user, or from the dashboard | `cloudflared`, no root                    | A dashboard tunnel installs a root LaunchDaemon. With Homebrew, that daemon runs a binary your user can overwrite.                                                                                               |
+| FileVault on the Mac        | On, with a manual unlock after every reboot; or off, with automatic login     | Off                                       | Off gives unattended recovery after power loss but leaves message copies unencrypted on disk. Choose on if the Mac is not physically secure.                                                                     |
+| Hostname domain             | A company domain or a personal domain                                         | Personal                                  | Must be a zone in the Cloudflare account that runs Zero Trust. A company domain puts personal texts on company infrastructure.                                                                                   |
+| Sign-in provider for Access | Google (with MFA), or Cloudflare one-time PIN by email                        | Google with MFA                           | One-time PIN is simpler; an identity provider adds MFA and device sessions.                                                                                                                                      |
+| Read scope                  | All chats, or a list                                                          | All                                       | A list limits what a hijacked session or injected prompt can reach.                                                                                                                                              |
+| Sending at launch           | On with allowlist, or read-only first                                         | Read-only until the acceptance tests pass | Lets you watch the assistant's behaviour on real inbound texts before it can send.                                                                                                                               |
+| Code-signing identity       | Apple Developer ID, or a self-signed certificate on the Mac                   | Self-signed; Developer ID if you have one | Either keeps macOS permission grants across rebuilds; ad-hoc signing does not.                                                                                                                                   |
 
 ## Milestones
 
 A suggested rollout, each step closed by a gate (the checks are in [testing.md](testing.md)):
 
 1. **Local host.** Mac prepared, binary signed and installed, permissions granted, `imsg-mcp selftest --launchd --no-send` passes. Verify that macOS attributes `imsg`'s access to the server binary.
-2. **Remote read-only.** Tunnel and both Access apps working; Claude on a phone off the home network can read texts; unauthenticated requests get `401` at Cloudflare and `403` at the origin. Confirm the client sends RFC 8707 `resource` indicators.
+2. **Remote read-only.** Tunnel and the people Access app working (plus the machines app if you use headless agents); Claude on a phone off the home network can read texts; unauthenticated requests get `401` at Cloudflare and `403` at the origin. Confirm the client sends RFC 8707 `resource` indicators.
 3. **Sending.** Turn on `send.enabled` with a small allowlist; approval prompts on every surface; the injection test passes; the full selftest passes.
 4. **Unattended.** Heartbeat alerts wired up; the power-pull test passes.

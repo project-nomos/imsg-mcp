@@ -1,12 +1,11 @@
-# Only for a locally-managed tunnel. The recommended setup is a dashboard-managed tunnel
-# installed with `sudo cloudflared service install <token>` (see docs/cloudflare.md), where
-# the same ingress rules are entered in the Zero Trust dashboard instead of this file.
+# Config for the tunnel created with `cloudflared tunnel create` (docs/cloudflare.md, step 1).
+# Save it as ~/.cloudflared/imsg-mcp.yml with the id and credentials file that
+# `cloudflared tunnel create mac-mini` printed. (A tunnel managed from the dashboard keeps
+# these ingress rules in the dashboard instead and needs no file.)
 #
 # Both hostnames reach the same local server. Cloudflare Access sits in front of each:
 #   imsg.example.com        people (Managed OAuth): Claude web, desktop, mobile, Claude Code
-#   imsg-agent.example.com  machines (service tokens): Agent SDK and other headless agents
-# Use the id and credentials file that `cloudflared tunnel create mac-mini` printed. For the
-# no-root setup (a LaunchAgent, see docs/cloudflare.md), keep both in your ~/.cloudflared.
+#   imsg-agent.example.com  machines (service tokens), optional: Agent SDK and other headless agents
 tunnel: <tunnel-id>
 credentials-file: /Users/<you>/.cloudflared/<tunnel-id>.json
 

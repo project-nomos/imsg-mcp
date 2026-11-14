@@ -48,8 +48,13 @@ That is the server working as designed:
 ## Claude cannot connect or keeps asking to sign in
 
 - `curl -si https://imsg.example.com/mcp` must return `401` with a `WWW-Authenticate` header. A `302` means **Managed OAuth** is off on the people application.
+- `530`: the tunnel is not connected. Check `launchctl print gui/$(id -u)/ai.mynomos.imsg-tunnel` and `~/Library/Logs/imsg-mcp/cloudflared.log`.
+- `502`: the tunnel is up but nothing answers on `127.0.0.1:8787`; see [The server will not start](#the-server-will-not-start).
+  - Stale connections give `502` too. If `cloudflared` was killed rather than stopped, Cloudflare can keep routing to its dead connections for a while.
+  - `cloudflared tunnel info mac-mini` then still lists a connector; `cloudflared tunnel cleanup mac-mini` clears it.
 - The redirect URI `https://claude.ai/api/mcp/auth_callback` must be allowed; for Claude Code, **Allow loopback clients** and **Allow localhost clients** must be on.
 - `403` from the origin (visible in `server.log` as `request rejected` with a reason):
+  - `missing Cf-Access-Jwt-Assertion header`: no Access application covers the hostname, so requests reach the Mac without a sign-in. The server refuses them all; add the application.
   - `claim "aud" invalid`: the application's AUD tag is not in `access.aud`.
   - `claim "iss" invalid`: `access.team_domain` does not match your team domain.
   - `email not in access.people` / `service token not in access.service_tokens`: add the identity.
@@ -66,7 +71,7 @@ That is the server working as designed:
 
 ## The server will not start
 
-`~/Library/Logs/imsg-mcp/launchd.err.log` has the reason. Common ones:
+`~/Library/Logs/imsg-mcp/launchd.err.log` has the reason. Right after `install.sh`, exit 78 every 10 seconds is expected until `access.*` is filled in. Common reasons:
 
 | Exit | Meaning                                                                                                    |
 | ---- | ---------------------------------------------------------------------------------------------------------- |
