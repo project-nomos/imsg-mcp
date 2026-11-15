@@ -24,9 +24,9 @@ Source: [Use skills in Claude](https://support.claude.com/en/articles/12512180-u
 
 [Claude Duet](https://claude.com/product/claude-duet) is Anthropic's proactive agent app: a research preview announced on October 21, 2026, available by waitlist in the US on Pro, Max and Ultra. Per [Anthropic's help article](https://support.claude.com/en/articles/17631495-get-started-with-claude-duet), it "runs on your Claude account, so the memory, skills, and connectors you've set up in Claude are there from your first message", and it waits for your approval before sending a message. There is no separate Duet setup: add the custom connector and the skill above, then check in Duet that the iMessage tools are available.
 
-Two things are not settled yet:
+In November 2026 we tested it: Duet read our texts through this server as a custom connector, in a conversation. Two things are still open:
 
-- Anthropic does not say whether Duet uses **custom** connectors (servers added by URL, like this one). An [early review](https://every.to/vibe-check/vibe-check-duet-anthropic-s-always-on-agent) found that Duet's scheduled runs could not reach the reviewer's custom connectors.
+- Whether Duet's **scheduled** runs reach custom connectors. Anthropic does not say, and an [early review](https://every.to/vibe-check/vibe-check-duet-anthropic-s-always-on-agent) found that Duet's scheduled runs could not reach the reviewer's custom connectors.
 - The help article says Duet "doesn't make phone calls or send text messages to other people". That describes Duet's own abilities; whether it will call this server's `send_message` is untested.
 
 A good pattern for a proactive agent, in Duet or elsewhere, is:
