@@ -24,10 +24,10 @@ Source: [Use skills in Claude](https://support.claude.com/en/articles/12512180-u
 
 [Claude Duet](https://claude.com/product/claude-duet) is Anthropic's proactive agent app: a research preview announced on October 21, 2026, available by waitlist in the US on Pro, Max and Ultra. Per [Anthropic's help article](https://support.claude.com/en/articles/17631495-get-started-with-claude-duet), it "runs on your Claude account, so the memory, skills, and connectors you've set up in Claude are there from your first message", and it waits for your approval before sending a message. There is no separate Duet setup: add the custom connector and the skill above, then check in Duet that the iMessage tools are available.
 
-In November 2026 we tested it: Duet read our texts through this server as a custom connector, in a conversation. Two things are still open:
+In November 2026 we tested it in a conversation: Duet read our texts through this server as a custom connector, and sent a reply after we approved it (the server checked the allowlist, length and rate limits, and the send was confirmed in history). Two notes:
 
-- Whether Duet's **scheduled** runs reach custom connectors. Anthropic does not say, and an [early review](https://every.to/vibe-check/vibe-check-duet-anthropic-s-always-on-agent) found that Duet's scheduled runs could not reach the reviewer's custom connectors.
-- The help article says Duet "doesn't make phone calls or send text messages to other people". That describes Duet's own abilities; whether it will call this server's `send_message` is untested.
+- Still open: whether Duet's **scheduled** runs reach custom connectors. Anthropic does not say, and an [early review](https://every.to/vibe-check/vibe-check-duet-anthropic-s-always-on-agent) found that Duet's scheduled runs could not reach the reviewer's custom connectors.
+- The help article says Duet "doesn't make phone calls or send text messages to other people". That describes Duet's own abilities: through this server it does send, using `send_message`, after you approve each message.
 
 A good pattern for a proactive agent, in Duet or elsewhere, is:
 
