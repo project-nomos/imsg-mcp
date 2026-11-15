@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/types.js";
-import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fixtureDb } from "../helpers/fixtures";
 import { parseToolText, STUB, tempDir, waitFor } from "../helpers/harness";
@@ -190,6 +190,43 @@ describe("serve process", () => {
 });
 
 describe("stdio mode", () => {
+  test("starts read-only on the defaults when there is no config file", async () => {
+    const s = setup("");
+    rmSync(s.configPath);
+    // The defaults name a bare "imsg", found on PATH: put the stub wrapper first.
+    const env = { ...s.env, PATH: `${s.dir}:${s.env.PATH ?? ""}` };
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [CLI, "stdio"],
+      env,
+      stderr: "pipe",
+    });
+    let stderr = "";
+    transport.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    const client = new Client({ name: "stdio-defaults-test", version: "0" });
+    await client.connect(transport);
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).not.toContain("send_message");
+      const chats = parseToolText(await client.callTool({ name: "list_chats", arguments: {} }));
+      expect((chats.chats as unknown[]).length).toBe(5);
+      const status = parseToolText(await client.callTool({ name: "get_status", arguments: {} }));
+      expect(status.caller).toMatchObject({ identity: "local", can_send: false });
+      expect(stderr).toContain("running read-only on the defaults");
+      expect(existsSync(s.configPath)).toBe(false);
+    } finally {
+      await client.close();
+    }
+  });
+
+  test("an invalid config file still stops stdio mode with EX_CONFIG (78)", async () => {
+    const s = setup(`[send]\nenable = true\n`);
+    const r = await run(["stdio"], s.env);
+    expect(r.code).toBe(78);
+    expect(r.stderr).toContain('unknown key(s) "enable"');
+  });
+
   test("serves MCP over stdin/stdout and follows send.enabled on SIGHUP", async () => {
     const s = setup(`[send]\nenabled = false\nallowlist = ["+14155550101"]\n`);
     const transport = new StdioClientTransport({

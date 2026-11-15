@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/mcpb/main/schemas/mcpb-manifest-v0.4.schema.json",
+  "manifest_version": "0.4",
+  "name": "imsg-mcp",
+  "display_name": "imsg-mcp",
+  "version": "0.1.0",
+  "description": "iMessage and SMS for AI assistants: read, search and, with your approval, send texts from this Mac.",
+  "long_description": "imsg-mcp lets Claude read your iMessage and SMS conversations on this Mac, catch up on what arrived since it last looked, search, and (only if you turn it on) send the replies you approve.\n\n**Before you install**\n\n- macOS 14 or later, signed in to Messages.\n- [imsg](https://github.com/steipete/imsg): `brew install steipete/tap/imsg`.\n- macOS lets an app read your messages only with **Full Disk Access**. A bundle runs inside Claude Desktop, so grant Full Disk Access to **Claude** in System Settings → Privacy & Security.\n\n**Sending is off** until you point the *Config file* setting at an imsg-mcp `config.toml` with `send.enabled = true` and an allowlist of who may be texted. The server checks the allowlist, a length limit and a rate limit on every send, and Claude asks before each one.\n\nFor an always-on Mac that serves Claude on the web and your phone, see the remote-mode setup in the [documentation](https://github.com/project-nomos/imsg-mcp#full-setup-remote-mode-on-a-mac-mini).",
+  "author": {
+    "name": "Project Nomos",
+    "url": "https://github.com/project-nomos"
+  },
+  "homepage": "https://github.com/project-nomos/imsg-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/project-nomos/imsg-mcp"
+  },
+  "documentation": "https://github.com/project-nomos/imsg-mcp/tree/main/docs",
+  "support": "https://github.com/project-nomos/imsg-mcp/issues",
+  "license": "MIT",
+  "keywords": ["imessage", "sms", "messages", "texting", "macos", "personal-assistant"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/imsg-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/imsg-mcp",
+      "args": ["stdio"],
+      "env": {
+        "IMSG_MCP_CONFIG": "${user_config.config_file}"
+      }
+    }
+  },
+  "user_config": {
+    "config_file": {
+      "type": "string",
+      "title": "Config file",
+      "description": "Path to an imsg-mcp config.toml, for example to turn sending on with an allowlist. If the file does not exist, the server runs read-only on the defaults.",
+      "default": "${HOME}/Library/Application Support/imsg-mcp/config.toml",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "list_chats",
+      "description": "List recent conversations, optionally filtered by name, number or email."
+    },
+    {
+      "name": "get_messages",
+      "description": "Read a conversation's history, paging back with a cursor."
+    },
+    {
+      "name": "check_new_messages",
+      "description": "Catch up on messages that arrived since the last check."
+    },
+    {
+      "name": "search_messages",
+      "description": "Find messages containing some text, in one chat or all."
+    },
+    {
+      "name": "get_status",
+      "description": "Health of the iMessage bridge and whether sending is on."
+    },
+    {
+      "name": "send_message",
+      "description": "Send a text to an allowlisted recipient, after your approval. Present only when sending is on."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin"]
+  },
+  "privacy_policies": ["https://github.com/project-nomos/imsg-mcp/blob/main/docs/privacy.md"]
+}

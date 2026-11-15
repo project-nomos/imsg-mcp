@@ -90,6 +90,10 @@ Cloudflare Access authenticates every request and attaches a signed JWT. `imsg-m
 
 Local mode is the fastest way to try it: the client starts `imsg-mcp` over stdio, so there is no network listener and no Cloudflare.
 
+**With Claude Desktop on Apple silicon:** install `imsg` (`brew install steipete/tap/imsg`), then download `imsg-mcp-<version>-darwin-arm64.mcpb` from the [latest release](https://github.com/project-nomos/imsg-mcp/releases/latest) and open it. Claude Desktop installs it as an extension that starts read-only. Grant Claude Full Disk Access (below). To turn sending on, point the extension's **Config file** setting at a config with `[send]` set up.
+
+**From source**, for any MCP client:
+
 ```bash
 git clone https://github.com/project-nomos/imsg-mcp.git
 cd imsg-mcp

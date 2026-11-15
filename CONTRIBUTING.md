@@ -64,6 +64,16 @@ IMSG_MCP_TEST_REAL_IMSG=1 bun test test/integration/real-imsg.test.ts
 
 Check its `docs/rpc.md` and payload builders, add any new behaviour to the stub (gated on `STUB_IMSG_VERSION`), and run the suite against both the oldest supported version (0.8.2) and the new one.
 
+## Releasing
+
+Releases run themselves once the version changes on `main`:
+
+1. `scripts/bump-version.sh X.Y.Z` sets the version in `package.json`, both plugin manifests and the bundle manifest, and moves the changelog's Unreleased notes under `## [X.Y.Z]`.
+2. Review `CHANGELOG.md`, commit (`release: vX.Y.Z`) and push to `main`.
+3. The Release workflow checks the code and builds the arm64 and x64 binaries and the MCP Bundle (`.mcpb`). It then creates the `vX.Y.Z` tag and GitHub release with the changelog notes, and publishes the release to the official MCP Registry as `io.github.project-nomos/imsg-mcp`. The registry login uses GitHub's OIDC token, so no secret is involved.
+
+To try the pipeline without publishing anything, run the workflow by hand (**Actions → Release → Run workflow**) with **dry run** on. It builds everything, validates the bundle and the registry entry, and keeps the files as a workflow artifact for a week.
+
 ## Reporting issues
 
 Use the issue templates. Include your macOS version, `imsg --version`, `imsg-mcp version`, the output of `imsg-mcp check-config`, and relevant `server.log` lines. **Remove phone numbers, emails and message text** before posting.

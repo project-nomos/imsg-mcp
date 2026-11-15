@@ -2,6 +2,7 @@
 
 The config is a TOML file at `~/Library/Application Support/imsg-mcp/config.toml`, owned by the bot user, mode `0600`. Create a starter file with `imsg-mcp init`, check it with `imsg-mcp check-config`. The full annotated example is [`deploy/config.example.toml`](../deploy/config.example.toml).
 
+- **No file in stdio mode:** `imsg-mcp stdio` runs read-only on the defaults when the config file does not exist, so a local client or the MCP Bundle can start it before `imsg-mcp init`. `serve` and the other commands need the file.
 - **Unknown keys are errors.** A typo such as `send.enable` stops the server from starting instead of being ignored.
 - **Reload without a restart:** send `SIGHUP`. If the new file is invalid, the server logs the problem and keeps the previous config. `server.listen`, `server.health_listen`, `imsg.path` and `imsg.db` need a restart.
 

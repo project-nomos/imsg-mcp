@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - Agent plugin in `plugins/imsg-mcp` with an `imessage` skill (finding chats, catching up with cursors, treating message text as untrusted, showing the exact draft before any send). It is packaged as an [Agent Plugins 1.0](https://agent-plugins.org/) package for ChatGPT, Codex, Cursor, VS Code, GitHub Copilot and Kiro, with an `mcp.example.json` template for your server, and as a Claude Code plugin with a marketplace in `.claude-plugin/` that includes the server and asks for its URL. Tests validate it against the official Agent Plugins schemas.
 - Docs: a "Works with" table in the README with an honest status per assistant; setup for ChatGPT and dots, Codex, Cursor, VS Code, GitHub Copilot, Kiro, Gemini and Perplexity; uploading the skill to a Claude account; the redirect URIs each web client needs in Cloudflare Access; a note that the project is independent of the companies whose products it works with.
 - `docs/privacy.md`: what the server reads, what it keeps and for how long, and where data goes.
+- Automatic releases: when a commit on `main` changes the version (`scripts/bump-version.sh`), the Release workflow builds the binaries and an MCP Bundle, publishes the GitHub release with the changelog notes, and lists the release in the official MCP Registry as `io.github.project-nomos/imsg-mcp`. Run it by hand with **dry run** to build and validate without publishing.
+- MCP Bundle (`.mcpb`, Apple silicon) on each release: a one-file install of local mode in Claude Desktop.
+- Local stdio mode starts read-only on the defaults when there is no config file, so a client or the bundle can run it before `imsg-mcp init`. An invalid file still stops it.
 
 ### Security
 
@@ -46,4 +49,4 @@ First release.
 - Documentation for architecture, Mac setup, Cloudflare, clients, configuration, tools, security, operations, testing and troubleshooting.
 
 [Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/project-nomos/imsg-mcp/releases/tag/v0.1.0
+[0.1.0]: https://github.com/project-nomos/imsg-mcp/tree/90b55bf638f4d7336ffef3f00a1087a26cc07bb1

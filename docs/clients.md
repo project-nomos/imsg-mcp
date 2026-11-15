@@ -143,6 +143,8 @@ The server's MCP `instructions` tell the model how to use cursors, to confirm se
 
 For a client on the same Mac, skip Cloudflare entirely: the client launches `imsg-mcp stdio` and talks to it over stdin and stdout. There is no network listener. The caller is treated as the local user with `local.role` (default `full`), and the send rules still apply.
 
+**Claude Desktop, as a bundle:** each [release](https://github.com/project-nomos/imsg-mcp/releases/latest) carries `imsg-mcp-<version>-darwin-arm64.mcpb` for Apple silicon. Open it and Claude Desktop installs the server as an extension. With no config file it runs read-only on the defaults; its **Config file** setting points it at one, for example to turn sending on.
+
 **Claude Code:**
 
 ```bash

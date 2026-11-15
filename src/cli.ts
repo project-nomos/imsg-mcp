@@ -5,7 +5,7 @@ import { runAcceptance } from "./acceptance";
 import { App, StartupError } from "./app";
 import { EXAMPLE_CONFIG } from "./config/example";
 import { formatRate } from "./config/rate";
-import { ConfigError, configWarnings, remoteModeProblems } from "./config/schema";
+import { buildConfig, ConfigError, configWarnings, remoteModeProblems } from "./config/schema";
 import { ConfigStore, configPermissionWarning } from "./config/store";
 import { startHealthServer } from "./http/health-http";
 import { startMcpHttpServer } from "./http/mcp-http";
@@ -131,6 +131,19 @@ function loadConfigOrExit(path: string): ConfigStore {
   }
 }
 
+/**
+ * Local stdio mode can start before `imsg-mcp init`: with no config file it runs on the
+ * defaults, which leave sending off. A file that exists but is invalid still stops it.
+ */
+function loadStdioConfigOrExit(path: string): ConfigStore {
+  if (existsSync(path)) return loadConfigOrExit(path);
+  process.stderr.write(
+    `imsg-mcp: no config file at ${path}; running read-only on the defaults. ` +
+      `Run "imsg-mcp init" to create one.\n`,
+  );
+  return new ConfigStore(path, buildConfig({}));
+}
+
 function setupLogging(paths: Paths, config: ConfigStore, stderr: "warn" | "error") {
   const cfg = config.current;
   const { logger, file } = createLogger({
@@ -236,7 +249,7 @@ async function serve(args: Args, paths: Paths): Promise<void> {
 }
 
 async function stdio(args: Args, paths: Paths): Promise<void> {
-  const config = loadConfigOrExit(args.config ?? paths.configFile);
+  const config = loadStdioConfigOrExit(args.config ?? paths.configFile);
   // stdout carries MCP; logs go to the file and serious ones to stderr.
   const { logger, file, audit } = setupLogging(paths, config, "error");
   let app: App;
