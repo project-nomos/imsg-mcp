@@ -21,17 +21,17 @@ Claude → "I'll send 'No rush!' to Sam (+1 415 555 0123). OK?"  → you approve
 
 ## Works with
 
-| Assistant                                              | How it connects                                                                                            | Status                                                                                                                                     |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Claude on the web, desktop and mobile, and Cowork      | Custom connector: **Customize > Connectors > Add > Add custom connector**                                  | Tested: reading                                                                                                                            |
-| Claude Code                                            | The [agent plugin](plugins/imsg-mcp/README.md) (skill and server) or `claude mcp add`                      | Tested: reading and sending                                                                                                                |
-| [Claude Duet](https://claude.com/product/claude-duet)  | The connectors and skills on your Claude account                                                           | Tested: reading and sending, in a conversation. Scheduled runs are untested; an early review found they could not reach custom connectors. |
-| ChatGPT                                                | **Plugins > + > Add custom MCP server**, after allowing ChatGPT's redirect URI in Cloudflare Access        | Should work, untested. OpenAI reportedly limits Pro accounts to read-only use of custom servers.                                           |
-| [dots in ChatGPT](https://learn.chatgpt.com/docs/dots) | The plugins installed on your ChatGPT account                                                              | Unconfirmed. OpenAI does not say whether plugins made from custom servers count.                                                           |
-| Codex, Cursor, VS Code, GitHub Copilot, Kiro           | The [agent plugin](plugins/imsg-mcp/README.md) for the skill, and the client's MCP settings for the server | Should work, untested                                                                                                                      |
-| Gemini, Perplexity                                     | Custom connector, after allowing the client's redirect URI                                                 | Untested                                                                                                                                   |
+| Assistant                                              | How it connects                                                                                            |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Claude on the web, desktop and mobile, and Cowork      | Custom connector: **Customize > Connectors > Add > Add custom connector**                                  |
+| Claude Code                                            | The [agent plugin](plugins/imsg-mcp/README.md) (skill and server) or `claude mcp add`                      |
+| [Claude Duet](https://claude.com/product/claude-duet)  | The connectors and skills on your Claude account                                                           |
+| ChatGPT                                                | **Plugins > + > Add custom MCP server**, after allowing ChatGPT's redirect URI in Cloudflare Access        |
+| [dots in ChatGPT](https://learn.chatgpt.com/docs/dots) | The plugins installed on your ChatGPT account                                                              |
+| Codex, Cursor, VS Code, GitHub Copilot, Kiro           | The [agent plugin](plugins/imsg-mcp/README.md) for the skill, and the client's MCP settings for the server |
+| Gemini, Perplexity                                     | Custom connector, after allowing the client's redirect URI                                                 |
 
-Setup for each is in [docs/clients.md](docs/clients.md). Tell us how it goes in an [issue](https://github.com/project-nomos/imsg-mcp/issues), and we'll update this table.
+Setup for each is in [docs/clients.md](docs/clients.md). If you use it with another assistant, tell us in an [issue](https://github.com/project-nomos/imsg-mcp/issues).
 
 ## Features
 
