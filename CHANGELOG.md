@@ -15,6 +15,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `docs/privacy.md`: what the server reads, what it keeps and for how long, and where data goes.
 - Automatic releases: when a commit on `main` changes the version (`scripts/bump-version.sh`), the Release workflow builds the binaries and an MCP Bundle, publishes the GitHub release with the changelog notes, and lists the release in the official MCP Registry as `io.github.project-nomos/imsg-mcp`. Run it by hand with **dry run** to build and validate without publishing.
 - MCP Bundle (`.mcpb`, Apple silicon) on each release: a one-file install of local mode in Claude Desktop.
+- `deploy/demo/Dockerfile`: a demo image for MCP directories that start a server to check its tools. It runs stdio mode against the test stand-in for imsg with sample conversations. Also `glama.json`, which names the maintainer for Glama.
 - Local stdio mode starts read-only on the defaults when there is no config file, so a client or the bundle can run it before `imsg-mcp init`. An invalid file still stops it.
 
 ### Security
