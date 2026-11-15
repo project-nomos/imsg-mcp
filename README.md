@@ -117,7 +117,7 @@ Or to Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_confi
 
 macOS only lets apps with **Full Disk Access** read `~/Library/Messages/chat.db`. In local mode the permission check applies to the app that launched the server (Claude Desktop, or your terminal for Claude Code), so grant Full Disk Access to that app. Sending also needs **Automation → Messages** (macOS asks on the first send). See [docs/clients.md](docs/clients.md#local-mode-stdio).
 
-Sending stays off until you edit the config:
+Sending stays off until you turn it on and list who may be texted ([adding someone to the allowlist](docs/configuration.md#adding-someone-to-the-allowlist)):
 
 ```toml
 [send]

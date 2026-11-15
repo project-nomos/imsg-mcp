@@ -24,6 +24,28 @@ The config is a TOML file at `~/Library/Application Support/imsg-mcp/config.toml
 
 **Allowlist rules.** A direct send (`to`) needs that handle on the list. A chat send (`chat_id`) needs either the chat id on the list, or **every** participant on the list. Listing members (rather than the chat id) means adding a stranger to the group blocks sends to it. Numbers must be E.164 with the country code; `"(415) 555-0123"` and `"14155550123"` are rejected so nothing matches by accident.
 
+### Adding someone to the allowlist
+
+1. **Get their handle.** A phone number in E.164 form (`+`, country code, no spaces or dashes, like `"+14155550123"`), or the email they use for iMessage. Names do not work. For a group chat, ask your assistant to list your chats with that group or person; each result carries a `chat_id`.
+2. **Add it to `send.allowlist`** in the config file on the Mac. Phone numbers and emails go in quotes, chat ids without:
+
+   ```toml
+   [send]
+   enabled = true
+   allowlist = ["+14155550123", "friend@icloud.com", 42]
+   ```
+
+3. **Check the file:** `imsg-mcp check-config` prints `Sending ON; allowlist N`, or names the entry it rejects.
+4. **Reload** with `SIGHUP`. No restart is needed: the next request uses the new list, and `server.log` records `config reloaded` with the new `allowlist_size`. If the service runs as your own user, no root is needed:
+
+   ```bash
+   launchctl kill SIGHUP gui/$(id -u)/ai.mynomos.imsg-mcp
+   ```
+
+5. **Ask your assistant to text them.** It asks you to approve each message, and the server checks the list again on every send. A recipient who is not on the list gets `Send refused by rule 2 (allowlist)`, even after you approve.
+
+The very first send from the service also needs macOS's Automation permission, which you approve at the Mac itself ([troubleshooting.md](troubleshooting.md#sends-fail-or-come-back-handed_off_unconfirmed)).
+
 ## `[read]`
 
 | Key                | Default | Meaning                                                                                                                                                                                                                        |

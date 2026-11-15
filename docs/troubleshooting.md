@@ -35,7 +35,7 @@ Run the selftest with `--launchd`. Without it, macOS checks Terminal's permissio
 That is the server working as designed:
 
 - **rule 1 (role):** the caller is a `read` service token.
-- **rule 2 (allowlist):** add the E.164 number or email to `send.allowlist`. For a group, either list its chat id or list every member. Numbers need the `+` and country code.
+- **rule 2 (allowlist):** add the E.164 number or email to `send.allowlist` and reload ([steps](configuration.md#adding-someone-to-the-allowlist)). For a group, either list its chat id or list every member. Numbers need the `+` and country code.
 - **rule 3 (length):** empty or longer than `send.max_chars`.
 - **rule 4 (rate):** wait until the time in the message, or raise `send.rate` deliberately.
 
