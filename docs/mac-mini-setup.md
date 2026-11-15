@@ -21,7 +21,7 @@ sudo scripts/host-setup.sh --apply  # also apply the power settings
   sudo pmset -a sleep 0 disksleep 0 autorestart 1
   ```
 
-- **Screen Sharing** on (System Settings → General → Sharing), for setup and for approving macOS permission prompts.
+- **Screen Sharing** on (System Settings → General → Sharing), for setup. Keep a display, keyboard and mouse at hand for the first send too: on macOS 27 the Automation alert appears only on the Mac's own screen ([below](#6-grant-macos-permissions)).
 - **FileVault:** automatic login requires FileVault to be off. That gives unattended recovery after a power cut but leaves message copies unencrypted on disk. Decide deliberately ([Open decisions](architecture.md#open-decisions)).
 
 **Running as your own user instead.** On a Mac where you are already signed in to Messages, you can run the service as yourself and skip creating `imsgbot`. It is quicker (no second Apple ID sign-in) and works with FileVault on. To adapt the commands below:
@@ -112,11 +112,11 @@ At minimum set `access.team_domain`, `access.aud` and `access.people` (see [clou
 
 Do this signed in as `imsgbot` (over Screen Sharing). Grant to `/usr/local/libexec/imsg-mcp/imsg-mcp` only:
 
-| Permission            | Where                                                                                                                     | Why                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Full Disk Access      | System Settings → Privacy & Security → Full Disk Access → `+` → press ⌘⇧G and type `/usr/local/libexec/imsg-mcp/imsg-mcp` | imsg reads `~/Library/Messages/chat.db`             |
-| Automation → Messages | Prompted the first time the service sends (approve it over Screen Sharing)                                                | `imsg send` drives Messages.app through AppleScript |
-| Contacts (optional)   | Prompted when imsg first resolves a name                                                                                  | Shows names instead of numbers                      |
+| Permission            | Where                                                                                                                                | Why                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| Full Disk Access      | System Settings → Privacy & Security → Full Disk Access → `+` → press ⌘⇧G and type `/usr/local/libexec/imsg-mcp/imsg-mcp`            | imsg reads `~/Library/Messages/chat.db`             |
+| Automation → Messages | Prompted the first time the service sends. Approve it **at the Mac itself**: on macOS 27 the alert does not show over Screen Sharing | `imsg send` drives Messages.app through AppleScript |
+| Contacts (optional)   | Prompted when imsg first resolves a name                                                                                             | Shows names instead of numbers                      |
 
 Never grant Full Disk Access to `node`, `python3`, Terminal or your editor for this: that would extend it to every script those programs run. imsg runs as a child of `imsg-mcp`, and macOS attributes a launchd-started child's access to the server binary, so the grant on the binary is what counts.
 

@@ -24,7 +24,7 @@ Run the selftest with `--launchd`. Without it, macOS checks Terminal's permissio
 
 ## Sends fail or come back `handed_off_unconfirmed`
 
-- **Automation:** the first send triggers "imsg-mcp wants to control Messages". Approve it over Screen Sharing. If you denied it, re-enable it under System Settings → Privacy & Security → Automation.
+- **Automation:** the first send triggers "imsg-mcp wants access to control Messages", and the send waits for an answer, so it times out with an unknown outcome. On macOS 27 this alert appears only on the Mac's own display: it is kept out of Screen Sharing and cannot be clicked remotely. While it is pending, `pgrep -fl osascript` on the Mac shows the waiting send. Approve it in person; to bring the alert back later, run `imsg-mcp selftest --launchd --to <allowlisted handle> --no-wait` at the Mac, which sends that handle one test text. If you denied it, re-enable it under System Settings → Privacy & Security → Automation.
 - **Messages signed out** or waiting for Apple ID re-authentication: open Messages over Screen Sharing.
 - **SMS numbers:** the iPhone must have Text Message Forwarding on for this Mac.
 - `handed_off_unconfirmed` means Messages accepted the text but it did not show up in history within `send.confirm_timeout_ms`. Check `get_messages` for that chat before sending again.
