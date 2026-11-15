@@ -60,7 +60,7 @@ In the Cloudflare One dashboard (as of November 2026):
 3. **Access policies → Create new policy:**
    - Action: **Allow**.
    - Include: **Emails**, listing your addresses (the ones you sign in with) and nobody else.
-4. **Authentication:** leave **Accept all available identity providers** on. A new organization signs you in with a one-time PIN: a code sent to your email. If you want MFA, add an identity provider with MFA (for example Google) under **Integrations → Identity providers**.
+4. **Authentication:** leave **Accept all available identity providers** on. Then check which login methods your organization has under **Integrations → Identity providers**. With none configured, Access signs people in with a one-time PIN (a code sent to their email). Some new organizations start with only **Cloudflare**, which accepts only members of your Cloudflare account. In that case, choose **Add an identity provider → One-time PIN** so the other addresses in your policy can sign in. If you want MFA, add an identity provider with MFA (for example Google) as well.
 5. **Additional settings** tab → turn on **Managed OAuth** and expand it:
    - **Allow localhost clients** and **Allow loopback clients**: on (the default). Claude Code signs in through a loopback redirect on a random port.
    - **Allowed redirect URIs**: `https://claude.ai/api/mcp/auth_callback`, the callback of Claude on the web, desktop and mobile. Add other clients' callbacks from [the table below](#redirect-uris-for-other-clients) as you need them.
