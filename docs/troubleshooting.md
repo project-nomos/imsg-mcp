@@ -53,6 +53,7 @@ That is the server working as designed:
   - Stale connections give `502` too. If `cloudflared` was killed rather than stopped, Cloudflare can keep routing to its dead connections for a while.
   - `cloudflared tunnel info mac-mini` then still lists a connector; `cloudflared tunnel cleanup mac-mini` clears it.
 - The redirect URI `https://claude.ai/api/mcp/auth_callback` must be allowed; for Claude Code, **Allow loopback clients** and **Allow localhost clients** must be on.
+- After you sign in with the emailed code, the browser shows `{"error":"not_found"}` on your hostname instead of returning to Claude: the sign-in worked, but Cloudflare sent you to the server's front page rather than on to its **Authorize Client** page. Click **Connect** in Claude again. With your Cloudflare session in place it goes straight to **Authorize Client**; click **Allow** and you are back in Claude.
 - "Cloudflare sign-in is restricted to members of the account": the login page offered only the **Cloudflare** method, which accepts only members of your Cloudflare account. Add **One-time PIN** under **Integrations → Identity providers → Add an identity provider**, then sign in by typing your email address and the emailed code ([cloudflare.md](cloudflare.md#2-access-application-for-people-managed-oauth)).
 - `403` from the origin (visible in `server.log` as `request rejected` with a reason):
   - `missing Cf-Access-Jwt-Assertion header`: no Access application covers the hostname, so requests reach the Mac without a sign-in. The server refuses them all; add the application.
