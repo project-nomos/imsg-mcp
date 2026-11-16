@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-16
+
 ### Added
 
 - `scripts/make-signing-identity.sh`: a self-signed code-signing identity in its own keychain, so builds can be signed over SSH; `scripts/sign.sh` uses it through `IMSG_MCP_SIGN_KEYCHAIN`.
@@ -53,5 +55,6 @@ First release.
 - Build, sign, install, update and uninstall scripts; LaunchAgent template; hardened-runtime entitlements.
 - Documentation for architecture, Mac setup, Cloudflare, clients, configuration, tools, security, operations, testing and troubleshooting.
 
-[Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/project-nomos/imsg-mcp/releases/tag/v0.2.0
 [0.1.0]: https://github.com/project-nomos/imsg-mcp/tree/90b55bf638f4d7336ffef3f00a1087a26cc07bb1
