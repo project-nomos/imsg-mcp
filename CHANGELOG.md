@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+
+- The demo image for MCP directories (`deploy/demo/Dockerfile`) now turns sending on for its sample contacts, so directories that start it see `send_message` next to the read tools. Sends only reach the test stand-in for imsg, which records them; nothing real is sent.
+
 ## [0.2.0] - 2026-11-16
 
 ### Added
