@@ -1,4 +1,12 @@
 import type { JWTVerifyGetKey } from "jose";
+import { mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import {
+  NO_CONVERTER_TOOLS,
+  systemConverterTools,
+  type ConverterTools,
+} from "./attachments/convert";
 import { AccessVerifier } from "./auth/access";
 import type { Config } from "./config/schema";
 import type { ConfigStore } from "./config/store";
@@ -16,6 +24,7 @@ import {
 } from "./imsg/status";
 import type { AuditLog } from "./log/audit";
 import type { Logger } from "./log/logger";
+import { defaultPaths, effectiveHome } from "./paths";
 import { RateLimiter } from "./send/rate-limiter";
 import { SendService } from "./send/service";
 import { StateDb } from "./store/state-db";
@@ -31,6 +40,12 @@ export interface AppOptions {
   /** Environment for the imsg child and status probe. Defaults to this process's. */
   imsgEnv?: NodeJS.ProcessEnv;
   messagesApp?: MessagesApp;
+  /** Where Messages keeps attachments. Defaults to `~/Library/Messages/Attachments`. */
+  attachmentsDir?: string;
+  /** Where files the assistant sends are written before imsg sends them. Defaults next to state.db. */
+  outboxDir?: string;
+  /** The programs that convert attachments. Defaults to the system's (macOS tools, sandboxed). */
+  converterTools?: ConverterTools;
   /** JWKS override for tests. */
   keySource?: JWTVerifyGetKey;
   /** How the server is being served, for get_status. */
@@ -69,6 +84,11 @@ export class App {
   status: ImsgStatus;
   /** Command prefix that runs imsg. */
   readonly imsgCommand: string[];
+  /** Where Messages keeps attachments; only files inside it are opened or forwarded. */
+  readonly attachmentsDir: string;
+  /** Private folder for files the assistant sends (written, sent, deleted). */
+  readonly outboxDir: string;
+  private converters: Promise<ConverterTools> | undefined;
   private readonly imsgEnv: NodeJS.ProcessEnv | undefined;
   private verifier: AccessVerifier | undefined;
   private readonly keySource: JWTVerifyGetKey | undefined;
@@ -87,6 +107,13 @@ export class App {
     this.keySource = opts.keySource;
     this.messagesApp = opts.messagesApp ?? systemMessagesApp;
     this.binaryPath = process.execPath;
+    this.attachmentsDir = opts.attachmentsDir ?? defaultPaths().attachmentsDir;
+    this.outboxDir =
+      opts.outboxDir ??
+      (opts.stateDbPath === ":memory:"
+        ? mkdtempSync(join(tmpdir(), "imsg-mcp-outbox-"))
+        : join(dirname(opts.stateDbPath), "outbox"));
+    if (opts.converterTools) this.converters = Promise.resolve(opts.converterTools);
     const cfg = opts.config.current;
 
     this.store = new StateDb(opts.stateDbPath, this.now);
@@ -113,14 +140,27 @@ export class App {
     this.sender = new SendService({
       api: this.api,
       chats: this.chats,
+      cursors: this.cursors,
+      store: this.store,
       config: this.config,
       rate: this.rate,
       audit: this.audit,
       logger: opts.logger.child({ component: "send" }),
       messagesApp: this.messagesApp,
+      attachmentsDir: this.attachmentsDir,
+      outboxDir: this.outboxDir,
       now: this.now,
       sleep: opts.sleep,
     });
+  }
+
+  /** The attachment converters for this platform, found on first use. */
+  converterTools(): Promise<ConverterTools> {
+    this.converters ??= systemConverterTools(effectiveHome()).catch((err: unknown) => {
+      this.logger.warn("attachment converters unavailable", { error: err as Error });
+      return NO_CONVERTER_TOOLS;
+    });
+    return this.converters;
   }
 
   /**
@@ -174,8 +214,12 @@ export class App {
     }
   }
 
-  /** Deletes inbound messages past `store.retention_days` and stale rate-limit rows. */
+  /**
+   * Deletes inbound messages past `store.retention_days`, stale rate-limit rows, and
+   * outbox files left behind when the server stopped right after a send.
+   */
   prune(): void {
+    this.sweepOutbox();
     const cfg = this.config.current;
     const horizon = Math.max(86_400_000, ...cfg.send.rate.map((w) => w.windowMs)) * 2;
     try {
@@ -183,6 +227,27 @@ export class App {
       if (removed.inbound || removed.sends) this.logger.info("pruned state", removed);
     } catch (err) {
       this.logger.error("prune failed", { error: err as Error });
+    }
+  }
+
+  /** Removes outbox folders older than ten minutes (other local copies may be mid-send). */
+  private sweepOutbox(): void {
+    let entries: string[];
+    try {
+      entries = readdirSync(this.outboxDir);
+    } catch {
+      return; // no outbox yet
+    }
+    for (const name of entries) {
+      if (!name.startsWith("send-")) continue;
+      const path = join(this.outboxDir, name);
+      try {
+        if (this.now() - statSync(path).mtimeMs > 600_000) {
+          rmSync(path, { recursive: true, force: true });
+        }
+      } catch (err) {
+        this.logger.warn("outbox cleanup failed", { error: err as Error });
+      }
     }
   }
 

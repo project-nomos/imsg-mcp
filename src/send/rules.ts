@@ -1,10 +1,20 @@
+import { extensionOf, SENDABLE_EXTENSIONS } from "../attachments/kinds";
 import { roleCanSend, type AllowlistConfig, type Role } from "../config/schema";
 import { normalizeHandle } from "../core/handles";
 
-/** Which rule refused a send. Numbered as in the spec. */
-export type SendRule = "role" | "allowlist" | "length" | "rate";
+/**
+ * Which rule refused a send. Numbered as in the spec; `file` is part of rule 3, which
+ * limits what is sent (the text, and a file when there is one).
+ */
+export type SendRule = "role" | "allowlist" | "length" | "file" | "rate";
 
-export const RULE_NUMBER: Record<SendRule, number> = { role: 1, allowlist: 2, length: 3, rate: 4 };
+export const RULE_NUMBER: Record<SendRule, number> = {
+  role: 1,
+  allowlist: 2,
+  length: 3,
+  file: 3,
+  rate: 4,
+};
 
 export class SendRefused extends Error {
   constructor(
@@ -76,4 +86,39 @@ export function checkLength(text: string, maxChars: number): string {
     throw new SendRefused("length", `text is ${length} characters; the limit is ${maxChars}`);
   }
   return trimmed;
+}
+
+function megabytes(bytes: number): string {
+  return `${Math.round((bytes / 1_048_576) * 10) / 10} MB`;
+}
+
+/** Rule 3: a file may be sent only when `send.files` is on. */
+export function checkFilesEnabled(enabled: boolean): void {
+  if (!enabled) {
+    throw new SendRefused(
+      "file",
+      "sending files is turned off on this server (send.files = false)",
+    );
+  }
+}
+
+/**
+ * Rule 3 for a file: its type is one that cannot run (no apps, scripts, installers or
+ * archives), and it is within the size limit.
+ */
+export function checkFile(file: { name: string; bytes: number }, maxBytes: number): void {
+  const ext = extensionOf(file.name);
+  if (!SENDABLE_EXTENSIONS.has(ext)) {
+    throw new SendRefused(
+      "file",
+      ext ? `".${ext}" files cannot be sent` : `"${file.name}" has no file extension`,
+    );
+  }
+  if (file.bytes === 0) throw new SendRefused("file", "the file is empty");
+  if (file.bytes > maxBytes) {
+    throw new SendRefused(
+      "file",
+      `the file is ${megabytes(file.bytes)}; the limit is ${megabytes(maxBytes)}`,
+    );
+  }
 }

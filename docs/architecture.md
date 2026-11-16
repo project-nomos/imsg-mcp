@@ -6,7 +6,7 @@
 
 **Goals (v1)**
 
-- Claude on web, desktop and mobile, Claude Code, and Agent SDK agents can list chats, read history, check for new messages and send texts.
+- Claude on web, desktop and mobile, Claude Code, and Agent SDK agents can list chats, read history, check for new messages, open attachments and send texts and files.
 - Nothing on the home network accepts inbound connections. All traffic arrives through an outbound Cloudflare Tunnel.
 - Every client signs in with OAuth before any tool call. Machine clients use a scoped Cloudflare service token.
 - Sending is fenced: off by default, recipient allowlist, approval prompt, rate limit, audit log.
@@ -16,7 +16,7 @@
 
 - Features that need imsg's private API (typing indicators, read receipts, edits, polls). They require turning off System Integrity Protection.
 - Pushing new messages to the agent. Agents poll with a cursor instead.
-- Sending attachments. Inbound attachment metadata is in scope.
+- Playing audio or video. Videos are shown as still frames and audio as its length.
 - Access for anyone other than the owner.
 
 ## The three layers

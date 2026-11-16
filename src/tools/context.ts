@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { App } from "../app";
+import { AttachmentError } from "../attachments/files";
 import type { Identity } from "../auth/access";
 import { ImsgError, permissionHint } from "../imsg/errors";
 import type { AuditRecord } from "../log/audit";
@@ -21,19 +22,24 @@ export class ToolInputError extends Error {
 
 export interface ToolOutput {
   result: object;
+  /** Images returned after the JSON result, such as an attachment's pages or frames. */
+  images?: { data: string; mimeType: string }[];
   /** Extra audit fields: chat ids and row counts for reads. Never message text. */
   audit?: Partial<AuditRecord>;
 }
 
-function errorMessage(err: unknown, ctx: ToolContext): string {
-  if (
+/** Errors whose message is written for the model and goes back to it unchanged. */
+function isInputError(err: unknown): boolean {
+  return (
     err instanceof ToolInputError ||
     err instanceof SendInputError ||
     err instanceof SendRefused ||
-    err instanceof SendDisabled
-  ) {
-    return err.message;
-  }
+    err instanceof AttachmentError
+  );
+}
+
+function errorMessage(err: unknown, ctx: ToolContext): string {
+  if (isInputError(err) || err instanceof SendDisabled) return (err as Error).message;
   if (err instanceof SendFailed) return err.message;
   if (err instanceof ImsgError) {
     switch (err.kind) {
@@ -65,7 +71,7 @@ export async function runTool(
   const started = ctx.app.now();
   const base = { identity: ctx.identity.id, identity_kind: ctx.identity.kind, tool };
   try {
-    const { result, audit } = await body();
+    const { result, images, audit } = await body();
     if (opts.audit !== false) {
       ctx.app.audit.record({
         ...base,
@@ -74,7 +80,16 @@ export async function runTool(
         ...audit,
       });
     }
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    return {
+      content: [
+        { type: "text", text: JSON.stringify(result) },
+        ...(images ?? []).map((i) => ({
+          type: "image" as const,
+          data: i.data,
+          mimeType: i.mimeType,
+        })),
+      ],
+    };
   } catch (err) {
     const message = errorMessage(err, ctx);
     if (opts.audit !== false) {
@@ -85,11 +100,7 @@ export async function runTool(
         error: message.slice(0, 500),
       });
     }
-    if (
-      !(err instanceof ToolInputError) &&
-      !(err instanceof SendInputError) &&
-      !(err instanceof SendRefused)
-    ) {
+    if (!isInputError(err)) {
       ctx.app.logger.warn("tool failed", {
         tool,
         identity: ctx.identity.id,

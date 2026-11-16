@@ -51,8 +51,12 @@ export interface Config {
     rate: RateWindow[];
     rate_spec: string;
     confirm_timeout_ms: number;
+    /** Whether send_message may send a file (a received attachment or a new one). */
+    files: boolean;
+    max_file_mb: number;
   };
   read: { scope: ReadScopeConfig; max_text_chars: number; max_result_chars: number };
+  attachments: { enabled: boolean; max_file_mb: number; max_image_px: number };
   access: {
     team_domain: string | undefined;
     aud: string[];
@@ -101,6 +105,8 @@ const RawConfigSchema = z.strictObject({
       max_chars: z.number().int().min(1).max(20_000).default(1000),
       rate: z.string().default("10/hour, 40/day"),
       confirm_timeout_ms: z.number().int().min(0).max(60_000).default(10_000),
+      files: z.boolean().default(false),
+      max_file_mb: z.number().int().min(1).max(100).default(100),
     })
     .prefault({}),
   read: z
@@ -109,6 +115,14 @@ const RawConfigSchema = z.strictObject({
       max_text_chars: z.number().int().min(100).max(100_000).default(4000),
       // Claude accepts about 150,000 characters per tool result (25,000 tokens in Claude Code).
       max_result_chars: z.number().int().min(5_000).max(1_000_000).default(60_000),
+    })
+    .prefault({}),
+  attachments: z
+    .strictObject({
+      enabled: z.boolean().default(true),
+      max_file_mb: z.number().int().min(1).max(4096).default(200),
+      // Claude scales images down to about 1568 pixels on the longest side anyway.
+      max_image_px: z.number().int().min(256).max(8000).default(1568),
     })
     .prefault({}),
   access: z
@@ -353,12 +367,15 @@ export function buildConfig(data: unknown): Config {
       rate,
       rate_spec: raw.send.rate,
       confirm_timeout_ms: raw.send.confirm_timeout_ms,
+      files: raw.send.files,
+      max_file_mb: raw.send.max_file_mb,
     },
     read: {
       scope,
       max_text_chars: raw.read.max_text_chars,
       max_result_chars: raw.read.max_result_chars,
     },
+    attachments: raw.attachments,
     access: {
       team_domain: teamDomain,
       aud,

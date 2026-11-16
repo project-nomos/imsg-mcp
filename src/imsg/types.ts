@@ -27,6 +27,8 @@ export interface RawAttachment {
   byte_size?: number;
   is_sticker?: boolean;
   missing?: boolean;
+  /** Absolute path (imsg expands `~` in `filename`). Empty when the file is missing. */
+  original_path?: string;
 }
 
 export interface RawMessage {

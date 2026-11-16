@@ -1,10 +1,11 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { exportJWK, generateKeyPair, createLocalJWKSet, SignJWT, type JWK } from "jose";
-import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { App } from "../../src/app";
+import type { ConverterTools } from "../../src/attachments/convert";
 import { buildConfig } from "../../src/config/schema";
 import { ConfigStore } from "../../src/config/store";
 import { startMcpHttpServer, type RunningServer } from "../../src/http/mcp-http";
@@ -88,6 +89,8 @@ export interface HarnessOptions {
   version?: "0.8.2" | "0.21.0";
   messagesRunning?: boolean;
   start?: boolean;
+  /** Attachment converters; the system's by default (macOS tools, or none elsewhere). */
+  converterTools?: ConverterTools;
 }
 
 /** A running App wired to the stub imsg, with a temp state dir. */
@@ -95,6 +98,8 @@ export class Harness {
   readonly dir: string;
   readonly dbPath: string;
   readonly statePath: string;
+  /** Stands in for ~/Library/Messages/Attachments. */
+  readonly attachmentsDir: string;
   readonly audit = new MemoryAuditLog();
   readonly log = memoryLogger();
   readonly messagesApp;
@@ -107,13 +112,20 @@ export class Harness {
     this.dir = tempDir();
     this.dbPath = join(this.dir, "chatdb.json");
     this.statePath = join(this.dir, "state.db");
+    this.attachmentsDir = join(this.dir, "Attachments");
+    mkdirSync(this.attachmentsDir);
     this.version = opts.version ?? "0.8.2";
     this.messagesApp = fakeMessagesApp(opts.messagesRunning ?? true);
     this.writeDb(opts.db ?? fixtureDb());
   }
 
   get env(): NodeJS.ProcessEnv {
-    return { ...process.env, STUB_IMSG_DB: this.dbPath, STUB_IMSG_VERSION: this.version };
+    return {
+      ...process.env,
+      STUB_IMSG_DB: this.dbPath,
+      STUB_IMSG_VERSION: this.version,
+      STUB_IMSG_ATTACHMENTS: this.attachmentsDir,
+    };
   }
 
   async start(): Promise<this> {
@@ -138,6 +150,8 @@ export class Harness {
       imsgCommand: [process.execPath, STUB],
       imsgEnv: this.env,
       messagesApp: this.messagesApp,
+      attachmentsDir: this.attachmentsDir,
+      converterTools: this.opts.converterTools,
       keySource,
       mode: "http",
       sleep: (ms) => Bun.sleep(Math.min(ms, 50)),
@@ -182,6 +196,58 @@ export class Harness {
       is_from_me: message.is_from_me ?? false,
       text: message.text,
       created_at: new Date().toISOString(),
+    });
+    this.writeDb(db);
+    return id;
+  }
+
+  /**
+   * Writes a file into the stand-in attachments folder and delivers a message carrying
+   * it, as Messages would. Returns the message's rowid; its attachment id is
+   * `${chat_id}-${rowid}-0`.
+   */
+  injectAttachment(message: {
+    chat_id: number;
+    sender?: string;
+    text?: string;
+    name: string;
+    content: string | Uint8Array;
+    mime: string;
+    uti?: string;
+    /** Path relative to the attachments folder, or an absolute path (to test the folder check). */
+    path?: string;
+    missing?: boolean;
+  }): number {
+    const rel =
+      message.path ?? `ab/${Date.now()}-${Math.random().toString(36).slice(2)}/${message.name}`;
+    const absolute = rel.startsWith("/") ? rel : join(this.attachmentsDir, rel);
+    if (!message.missing) {
+      mkdirSync(dirname(absolute), { recursive: true });
+      writeFileSync(absolute, message.content);
+    }
+    const db = this.readDb();
+    const id = db.messages.reduce((acc, m) => Math.max(acc, Number(m.id)), 0) + 1;
+    db.messages.push({
+      id,
+      chat_id: message.chat_id,
+      guid: `INJ-${id}`,
+      sender: message.sender ?? "",
+      is_from_me: false,
+      text: message.text ?? "\uFFFC",
+      created_at: new Date().toISOString(),
+      attachments: [
+        {
+          filename: rel.startsWith("/") ? rel : `~/Library/Messages/Attachments/${rel}`,
+          transfer_name: message.name,
+          uti: message.uti ?? "public.data",
+          mime_type: message.mime,
+          total_bytes:
+            typeof message.content === "string"
+              ? Buffer.byteLength(message.content)
+              : message.content.length,
+          ...(message.missing ? { missing: true } : {}),
+        },
+      ],
     });
     this.writeDb(db);
     return id;

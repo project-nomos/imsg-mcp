@@ -13,7 +13,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { App } from "../../src/app";
@@ -34,6 +34,7 @@ import {
   parseToolText,
   waitFor,
 } from "../helpers/harness";
+import { PNG_1X1 } from "../helpers/media";
 import { appendChatDbMessage, buildChatDb } from "../helpers/synthetic-chatdb";
 
 /** The imsg under test: IMSG_MCP_TEST_IMSG, or the one on PATH / in Homebrew. */
@@ -67,6 +68,7 @@ async function startApp(): Promise<void> {
     stateDbPath: statePath,
     imsgCommand: IMSG_COMMAND,
     messagesApp: fakeMessagesApp(true),
+    attachmentsDir: join(dir, "Attachments"),
     keySource: keys.keySource,
     mode: "http",
   });
@@ -92,6 +94,7 @@ describe.skipIf(!ENABLED)("real imsg (synthetic chat.db, sending disabled)", () 
     dir = mkdtempSync(join(tmpdir(), "imsg-mcp-real-"));
     chatDb = join(dir, "chat.db");
     statePath = join(dir, "state.db");
+    mkdirSync(join(dir, "Attachments"));
     buildChatDb(chatDb);
     config = new ConfigStore(
       join(dir, "config.toml"),
@@ -146,7 +149,9 @@ describe.skipIf(!ENABLED)("real imsg (synthetic chat.db, sending disabled)", () 
     expect(messages[2]).toMatchObject({
       text: "Photo from the trip",
       service: "iMessage",
-      attachments: [{ name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331, missing: true }],
+      attachments: [
+        { id: "1-14-0", name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331, missing: true },
+      ],
     });
     expect(JSON.stringify(res)).not.toContain("/Library/Messages/Attachments");
     expect(res.untrusted_content).toBe(true);
@@ -250,6 +255,62 @@ describe.skipIf(!ENABLED)("real imsg (synthetic chat.db, sending disabled)", () 
     } finally {
       await reader.close();
     }
+  });
+
+  test("get_attachment opens the files real imsg points to, and nothing outside the folder", async () => {
+    const vcard = "BEGIN:VCARD\nFN:Alice\nEND:VCARD\n";
+    const folder = join(dir, "Attachments", "ab", "12");
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, "Alice.vcf"), vcard);
+    writeFileSync(join(folder, "dot.png"), PNG_1X1);
+    writeFileSync(join(dir, "outside.txt"), "outside the folder");
+    const attach = (path: string, name: string, mime: string, bytes: number) =>
+      appendChatDbMessage(chatDb, {
+        chat_id: 1,
+        text: "\uFFFC",
+        sender: "+14155550101",
+        attachments: [
+          {
+            filename: path,
+            transfer_name: name,
+            uti: "public.data",
+            mime_type: mime,
+            total_bytes: bytes,
+          },
+        ],
+      });
+    const card = attach(join(folder, "Alice.vcf"), "Alice.vcf", "text/vcard", vcard.length);
+    const photo = attach(join(folder, "dot.png"), "dot.png", "image/png", PNG_1X1.length);
+    const outside = attach(join(dir, "outside.txt"), "outside.txt", "text/plain", 18);
+    await waitFor(() => app.store.findInbound(outside), 10_000, "attachment messages");
+
+    const listed = await call("get_messages", { chat_id: 1, limit: 3 });
+    expect(
+      (listed.messages as { cursor: number; text: string }[]).map((m) => [m.cursor, m.text]),
+    ).toEqual([
+      [card, ""],
+      [photo, ""],
+      [outside, ""],
+    ]);
+    expect(await call("get_attachment", { attachment_id: `1-${card}-0` })).toMatchObject({
+      shown_as: "text",
+      text: vcard,
+      untrusted_content: true,
+    });
+    const image = await owner.callTool({
+      name: "get_attachment",
+      arguments: { attachment_id: `1-${photo}-0` },
+    });
+    expect((image.content as { type: string; mimeType?: string }[])[1]).toMatchObject({
+      type: "image",
+      mimeType: "image/png",
+    });
+    const refused = await owner.callTool({
+      name: "get_attachment",
+      arguments: { attachment_id: `1-${outside}-0` },
+    });
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(refused.content)).toContain("outside the Messages attachments folder");
   });
 
   test("the selftest passes its read-only steps against the real imsg", async () => {

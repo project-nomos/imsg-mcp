@@ -5,7 +5,7 @@ import { join } from "node:path";
  * The effective user's home from the user database. `sudo -u imsgbot` on macOS can keep
  * the caller's $HOME, which would point the server at the wrong config.
  */
-function effectiveHome(env: NodeJS.ProcessEnv): string {
+export function effectiveHome(env: NodeJS.ProcessEnv = process.env): string {
   try {
     const home = userInfo().homedir;
     if (home) return home;
@@ -26,6 +26,8 @@ export interface Paths {
   stateDir: string;
   /** Directory holding `server.log` and `audit.jsonl`. */
   logDir: string;
+  /** Where Messages keeps attachments. The server opens files only inside it. */
+  attachmentsDir: string;
 }
 
 export function defaultPaths(env: NodeJS.ProcessEnv = process.env): Paths {
@@ -35,6 +37,8 @@ export function defaultPaths(env: NodeJS.ProcessEnv = process.env): Paths {
     configFile: env.IMSG_MCP_CONFIG || join(appSupport, "config.toml"),
     stateDir: env.IMSG_MCP_STATE_DIR || appSupport,
     logDir: env.IMSG_MCP_LOG_DIR || join(home, "Library", "Logs", "imsg-mcp"),
+    attachmentsDir:
+      env.IMSG_MCP_ATTACHMENTS_DIR || join(home, "Library", "Messages", "Attachments"),
   };
 }
 

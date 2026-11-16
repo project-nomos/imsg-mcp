@@ -155,6 +155,7 @@ export function appendChatDbMessage(
     sender?: string;
     is_from_me?: boolean;
     created_at?: string;
+    attachments?: FixtureMessage["attachments"];
   },
 ): number {
   const db = new Database(path);
@@ -177,6 +178,7 @@ export function appendChatDbMessage(
       is_from_me: msg.is_from_me ?? false,
       text: msg.text,
       created_at: msg.created_at ?? new Date().toISOString(),
+      attachments: msg.attachments,
     });
     return next;
   } finally {

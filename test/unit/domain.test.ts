@@ -139,8 +139,23 @@ describe("formatting", () => {
       sent_at: "2026-11-13T18:04:11Z",
       service: "iMessage",
       text: "Running 10 min late",
-      attachments: [{ name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331 }],
+      attachments: [
+        { id: "42-918233-0", name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331 },
+      ],
     });
+  });
+
+  test("an attachment-only message has no placeholder text", () => {
+    const out = messageFromRaw({
+      id: 7,
+      chat_id: 3,
+      text: "\uFFFC",
+      created_at: "2026-11-13T00:00:00Z",
+      attachments: [{ transfer_name: "a.jpg", mime_type: "image/jpeg", total_bytes: 10 }],
+    });
+    expect(out.text).toBe("");
+    expect(out.attachments.map((a) => a.id)).toEqual(["3-7-0"]);
+    expect(messageFromRaw({ id: 8, chat_id: 3, text: "look \uFFFC" }).text).toBe("look");
   });
 
   test("chat names fall back sensibly without the directory", () => {

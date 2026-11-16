@@ -11,17 +11,19 @@ The config is a TOML file at `~/Library/Application Support/imsg-mcp/config.toml
   launchctl kill SIGHUP gui/$(id -u imsgbot)/ai.mynomos.imsg-mcp
   ```
 
-- **Other locations:** `--config <path>`, or the environment variables `IMSG_MCP_CONFIG`, `IMSG_MCP_STATE_DIR` (where `state.db` lives) and `IMSG_MCP_LOG_DIR`.
+- **Other locations:** `--config <path>`, or the environment variables `IMSG_MCP_CONFIG`, `IMSG_MCP_STATE_DIR` (where `state.db` lives), `IMSG_MCP_LOG_DIR` and `IMSG_MCP_ATTACHMENTS_DIR` (where Messages keeps attachments; only for tests and unusual setups).
 
 ## `[send]`
 
-| Key                  | Default             | Meaning                                                                                                                                              |
-| -------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`            | `false`             | When false, the `send_message` tool is not registered at all.                                                                                        |
-| `allowlist`          | `[]`                | Who may be texted: E.164 numbers (`"+14155550123"`), emails, or chat ids (`42`). Empty blocks every send.                                            |
-| `max_chars`          | `1000`              | Longest message accepted, in characters, after trimming.                                                                                             |
-| `rate`               | `"10/hour, 40/day"` | Sliding-window limits across all clients. Units: second, minute, hour, day (also `5/2h`). Persisted in `state.db`, so a restart does not reset them. |
-| `confirm_timeout_ms` | `10000`             | How long to look for the sent message in history before answering `handed_off_unconfirmed`.                                                          |
+| Key                  | Default             | Meaning                                                                                                                                                                                                                                          |
+| -------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `enabled`            | `false`             | When false, the `send_message` tool is not registered at all.                                                                                                                                                                                    |
+| `allowlist`          | `[]`                | Who may be texted: E.164 numbers (`"+14155550123"`), emails, or chat ids (`42`). Empty blocks every send.                                                                                                                                        |
+| `max_chars`          | `1000`              | Longest message accepted, in characters, after trimming.                                                                                                                                                                                         |
+| `rate`               | `"10/hour, 40/day"` | Sliding-window limits across all clients. Units: second, minute, hour, day (also `5/2h`). Persisted in `state.db`, so a restart does not reset them.                                                                                             |
+| `confirm_timeout_ms` | `10000`             | How long to look for the sent message in history before answering `handed_off_unconfirmed`.                                                                                                                                                      |
+| `files`              | `false`             | Let `send_message` send a file: forward an attachment (`attachment_id`) or a new file the assistant writes (`file`, up to 5 MB). Programs, scripts, installers, archives and macro-capable Office files (`.doc`, `.xls`, `.ppt`) are never sent. |
+| `max_file_mb`        | `100`               | Largest file that can be sent, in MB (iMessage's own limit is about 100 MB).                                                                                                                                                                     |
 
 **Allowlist rules.** A direct send (`to`) needs that handle on the list. A chat send (`chat_id`) needs either the chat id on the list, or **every** participant on the list. Listing members (rather than the chat id) means adding a stranger to the group blocks sends to it. Numbers must be E.164 with the country code; `"(415) 555-0123"` and `"14155550123"` are rejected so nothing matches by accident.
 
@@ -61,6 +63,16 @@ A handle in `scope` (for example `"+14155550123"`) allows the 1:1 chat with that
 [read]
 scope = [42, 57, "+14155550123", "partner@example.com"]
 ```
+
+## `[attachments]`
+
+| Key            | Default | Meaning                                                                                                           |
+| -------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| `enabled`      | `true`  | List `get_attachment`, which shows photos, videos (as still frames), PDFs and documents. When false it is hidden. |
+| `max_file_mb`  | `200`   | Larger attachments are listed in messages but not opened.                                                         |
+| `max_image_px` | `1568`  | Longest side of returned images, in pixels. Claude scales larger images down to about this size anyway.           |
+
+`read.scope` applies to attachments too: an attachment can be opened (or forwarded) only from a chat the caller may read. Files are read only from inside the Messages attachments folder.
 
 ## `[access]` (remote mode)
 
@@ -102,13 +114,13 @@ scope = [42, 57, "+14155550123", "partner@example.com"]
 
 ## `[heartbeat]`, `[health]`
 
-| Key                                      | Default | Meaning                                                                                                         |
-| ---------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- |
-| `heartbeat.url`                          | `""`    | Dead-man's switch URL (e.g. a Healthchecks.io ping URL). Requested with `GET` while healthy. Empty disables it. |
-| `heartbeat.interval_seconds`             | `300`   | How often to ping.                                                                                              |
-| `health.sync_check_interval_seconds`     | `600`   | How often to compare the watch with the database.                                                               |
-| `health.messages_check_interval_seconds` | `60`    | How often to check that Messages.app is running.                                                                |
-| `health.relaunch_messages`               | `true`  | Open Messages.app when it is not running, and retry a failed send once.                                         |
+| Key                                      | Default | Meaning                                                                                                                     |
+| ---------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `heartbeat.url`                          | `""`    | Dead-man's switch URL (e.g. a Healthchecks.io ping URL). Requested with `GET` while healthy. Empty disables it.             |
+| `heartbeat.interval_seconds`             | `300`   | How often to ping.                                                                                                          |
+| `health.sync_check_interval_seconds`     | `600`   | How often to compare the watch with the database.                                                                           |
+| `health.messages_check_interval_seconds` | `60`    | How often to check that Messages.app is running.                                                                            |
+| `health.relaunch_messages`               | `true`  | Open Messages.app when it is not running, and retry a failed send once. In local (stdio) mode only the send retry opens it. |
 
 ## `[local]`, `[selftest]`
 

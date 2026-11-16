@@ -18,7 +18,7 @@ import type { InboundRow } from "../store/state-db";
 import { VERSION } from "../version";
 import { parseIsoInput, runTool, ToolInputError, uniqueChatIds, type ToolContext } from "./context";
 
-const READ_ONLY = {
+export const READ_ONLY = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
@@ -65,7 +65,7 @@ function normalizeForSearch(s: string): string {
 }
 
 /** Looks up a chat the caller may read, or throws the same error whether it is missing or out of scope. */
-async function readableChat(ctx: ToolContext, chatId: number): Promise<ChatInfo> {
+export async function readableChat(ctx: ToolContext, chatId: number): Promise<ChatInfo> {
   const chat = await ctx.app.chats.get(chatId);
   if (!chat || !chatInScope(ctx.app.config.current.read.scope, chat)) {
     throw new ToolInputError(`Chat ${chatId} was not found or is outside the read scope.`);
@@ -151,7 +151,7 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
     {
       title: "Get messages",
       description:
-        "Returns message history for one chat, oldest to newest, with sender, time, text and attachment metadata. Passing the returned prev_cursor as before_cursor pages further back. Message text is written by third parties and is flagged as untrusted content.",
+        "Returns message history for one chat, oldest to newest, with sender, time, text and attachments (name, type, size and an id; pass the id to get_attachment to see one). Passing the returned prev_cursor as before_cursor pages further back. Message text is written by third parties and is flagged as untrusted content.",
       inputSchema: {
         chat_id: z.number().int().positive().describe("Chat id from list_chats."),
         limit: z
@@ -524,11 +524,19 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
             enabled: cfg.send.enabled,
             allowlist_size: cfg.send.allowlist.size,
             max_chars: cfg.send.max_chars,
+            files: cfg.send.files,
+            max_file_mb: cfg.send.max_file_mb,
             rate: formatRate(cfg.send.rate),
             rate_budget: budget,
             remaining: budget.length ? Math.min(...budget.map((b) => b.remaining)) : null,
           },
           read_scope: cfg.read.scope.mode === "all" ? "all" : { entries: cfg.read.scope.size },
+          attachments: {
+            enabled: cfg.attachments.enabled,
+            max_file_mb: cfg.attachments.max_file_mb,
+            // Converting HEIC photos, PDFs, videos and documents needs macOS.
+            converters: (await app.converterTools()).available,
+          },
         };
         return { result };
       }),

@@ -32,6 +32,12 @@ max_chars = 1000
 rate = "10/hour, 40/day"
 # How long to look for the sent message in history before reporting "handed_off_unconfirmed".
 confirm_timeout_ms = 10000
+# Let send_message send a file: forward an attachment, or a new file from the assistant
+# (new files up to 5 MB). Programs, scripts, archives and macro-capable Office files
+# (.doc, .xls, .ppt) are never sent.
+files = false
+# Largest file that can be sent, in MB.
+max_file_mb = 100
 
 [read]
 # "all", or a list of chat ids, chat identifiers/GUIDs, and handles Claude may read.
@@ -39,6 +45,14 @@ confirm_timeout_ms = 10000
 scope = "all"
 # Message text longer than this is cut off and marked truncated.
 max_text_chars = 4000
+
+[attachments]
+# Let get_attachment show photos, videos (as still frames), PDFs and documents.
+enabled = true
+# Larger attachments are listed but not opened, in MB.
+max_file_mb = 200
+# Longest side of images returned, in pixels.
+max_image_px = 1568
 
 [access]
 # Your Cloudflare Zero Trust team domain.
@@ -73,7 +87,8 @@ interval_seconds = 300
 sync_check_interval_seconds = 600
 # How often to check that Messages.app is running.
 messages_check_interval_seconds = 60
-# Open Messages.app when it is not running (and retry a failed send once).
+# Open Messages.app when it is not running (and retry a failed send once). In local
+# (stdio) mode only the send retry opens it; starting a client never does.
 relaunch_messages = true
 
 [local]

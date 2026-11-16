@@ -17,6 +17,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - MCP Bundle (`.mcpb`, Apple silicon) on each release: a one-file install of local mode in Claude Desktop.
 - `deploy/demo/Dockerfile`: a demo image for MCP directories that start a server to check its tools. It runs stdio mode against the test stand-in for imsg with sample conversations. Also `glama.json`, which names the maintainer for Glama.
 - Local stdio mode starts read-only on the defaults when there is no config file, so a client or the bundle can run it before `imsg-mcp init`. An invalid file still stops it.
+- Attachments: every attachment in a message now has an `id`, and the new `get_attachment` tool opens it. Photos come back as images (HEIC, TIFF and large photos converted to JPEG and scaled to `attachments.max_image_px`), PDFs as their text and page images (`pages` picks which), videos as four still frames and their length, audio as its length, and Word, RTF, HTML, contact cards, calendar invites and other text files as text. Conversion uses macOS's own tools (`sips`, `textutil`, PDFKit, AVFoundation), each run in a sandbox with no access to the home folder, no network of its own, no Apple Events and no other programs, with remote content loading turned off; their output is read back only under fixed names, never through links. Files are opened only from inside the Messages attachments folder, and results are flagged `untrusted_content`. New `[attachments]` settings: `enabled` (default true), `max_file_mb` (200) and `max_image_px` (1568).
+- Sending files: with `send.files = true`, `send_message` can forward an attachment (`attachment_id`) or send a new file the assistant writes (`file`, with its content as text or base64, up to 5 MB), with or without text. Programs, scripts, installers, archives and macro-capable old Office files are refused; `send.max_file_mb` (default 100) caps the size. The allowlist, approval and rate limit apply as for text, and the audit log records each file's name, size and SHA-256.
 
 ### Security
 
@@ -25,6 +27,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Local (stdio) mode no longer opens Messages.app when a client starts it; a send still opens Messages if it is closed. Serve mode keeps relaunching it (`health.relaunch_messages`).
+- Message text no longer includes the placeholder character Messages stores for an attachment, so a message that is only a photo has empty text.
 - Docs: the tunnel is now created with `cloudflared` commands and run as a LaunchAgent of the service user, started only once Access protects the hostnames. A dashboard tunnel with a root LaunchDaemon is the alternative. The machines Access application is marked optional.
 
 ## [0.1.0] - 2026-11-13

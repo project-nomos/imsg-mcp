@@ -12,6 +12,8 @@
  *   STUB_IMSG_VERSION        "0.8.2" (default) or "0.21.0" (adds messages.search, chats.get,
  *                            strict param validation, version in status)
  *   STUB_IMSG_REPLAY         path of a recorded JSONL transcript to replay instead
+ *   STUB_IMSG_ATTACHMENTS    folder standing in for ~/Library/Messages/Attachments; a sent
+ *                            file is copied to its imsg/ subfolder, as imsg stages files
  *
  * Behaviour switches in the database file under "behavior":
  *   send_mode: "ok" | "no_row" | "not_running" | "not_running_once" | "timeout" | "delivery_unknown"
@@ -20,7 +22,16 @@
  *   auto_reply: { "text": "pong", "delay_ms": 200 }   reply from the recipient after a send
  *   permission_denied: true                            fail every request like imsg without FDA
  */
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
 
 interface StubChat {
@@ -74,6 +85,28 @@ interface StubDb {
 const VERSION = process.env.STUB_IMSG_VERSION ?? "0.8.2";
 const MODERN = VERSION !== "0.8.2";
 const DB_PATH = process.env.STUB_IMSG_DB ?? "";
+const ATTACHMENTS = process.env.STUB_IMSG_ATTACHMENTS ?? "/Users/me/Library/Messages/Attachments";
+const ATTACHMENTS_PREFIX = "~/Library/Messages/Attachments/";
+
+/** imsg's `original_path`: the stored filename with `~` expanded. */
+function originalPath(filename: string): string {
+  if (filename.startsWith(ATTACHMENTS_PREFIX)) {
+    return join(ATTACHMENTS, filename.slice(ATTACHMENTS_PREFIX.length));
+  }
+  return filename.startsWith("~/") ? join("/Users/me", filename.slice(2)) : filename;
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  pdf: "application/pdf",
+  txt: "text/plain",
+  ics: "text/calendar",
+  vcf: "text/vcard",
+  mov: "video/quicktime",
+};
 
 const BASE_METHODS = [
   "chats.list",
@@ -111,6 +144,14 @@ const STRICT_KEYS: Record<string, string[]> = {
     "convert_attachments",
   ],
   "messages.search": ["query", "match", "limit"],
+  "messages.after": [
+    "since_rowid",
+    "chat_id",
+    "limit",
+    "attachments",
+    "convert_attachments",
+    "include_reactions",
+  ],
   "watch.subscribe": [
     "chat_id",
     "since_rowid",
@@ -216,7 +257,7 @@ function messagePayload(
           mime_type: a.mime_type,
           total_bytes: a.total_bytes,
           is_sticker: a.is_sticker ?? false,
-          original_path: `/Users/me/Library/Messages/Attachments/${a.filename}`,
+          original_path: a.missing ? "" : originalPath(a.filename),
           missing: a.missing ?? false,
         }))
       : [],
@@ -356,6 +397,24 @@ async function handle(method: string, params: Record<string, unknown>): Promise<
         .map((m) => messagePayload(db, m, params.attachments === true));
       return { messages };
     }
+    case "messages.after": {
+      if (!MODERN) throw new RpcError(-32601, "Method not found");
+      const since = intParam(params, "since_rowid");
+      if (since === undefined)
+        throw new RpcError(-32602, "Invalid params", "since_rowid is required");
+      const chatId = intParam(params, "chat_id");
+      const limit = Math.min(500, intParam(params, "limit") ?? 100);
+      const after = db.messages
+        .filter((m) => m.id > since && !m.is_reaction)
+        .filter((m) => chatId === undefined || m.chat_id === chatId)
+        .sort((a, b) => a.id - b.id);
+      const page = after.slice(0, Math.max(1, limit));
+      return {
+        messages: page.map((m) => messagePayload(db, m, params.attachments === true)),
+        next_rowid: page.length ? page[page.length - 1]!.id : since,
+        has_more: after.length > page.length,
+      };
+    }
     case "messages.search": {
       if (!MODERN) throw new RpcError(-32601, "Method not found");
       const query = String(params.query ?? "").toLowerCase();
@@ -398,9 +457,13 @@ async function handle(method: string, params: Record<string, unknown>): Promise<
     }
     case "send": {
       const text = typeof params.text === "string" ? params.text : "";
+      const file = typeof params.file === "string" ? params.file : "";
       const to = typeof params.to === "string" ? params.to : "";
       const chatId = intParam(params, "chat_id");
-      if (!text) throw new RpcError(-32602, "Invalid params", "text or file is required");
+      if (!text && !file) throw new RpcError(-32602, "Invalid params", "text or file is required");
+      if (file && !existsSync(file)) {
+        throw new RpcError(-32602, "Invalid params", `file not found: ${file}`);
+      }
       if (to && chatId !== undefined)
         throw new RpcError(-32602, "Invalid params", "use to or chat_*; not both");
       const mode = db.behavior?.send_mode ?? "ok";
@@ -432,18 +495,47 @@ async function handle(method: string, params: Record<string, unknown>): Promise<
       } else {
         chat = directChatFor(db, to);
       }
+      // Text and file go out as two messages, text first, as imsg sends them.
       const rowid = maxRowid(db) + 1;
       const guid = `STUB-${rowid}`;
       if (mode === "ok") {
-        db.messages.push({
-          id: rowid,
-          chat_id: chat.id,
-          guid,
-          sender: "",
-          is_from_me: true,
-          text,
-          created_at: nowIso(),
-        });
+        let id = rowid;
+        if (text) {
+          db.messages.push({
+            id: id++,
+            chat_id: chat.id,
+            guid: `STUB-${id - 1}`,
+            sender: "",
+            is_from_me: true,
+            text,
+            created_at: nowIso(),
+          });
+        }
+        if (file) {
+          // imsg stages a private copy under Attachments/imsg/ and sends that.
+          const staged = join(ATTACHMENTS, "imsg", `${id}`, basename(file));
+          mkdirSync(join(ATTACHMENTS, "imsg", `${id}`), { recursive: true });
+          copyFileSync(file, staged);
+          const ext = basename(file).split(".").pop()?.toLowerCase() ?? "";
+          db.messages.push({
+            id,
+            chat_id: chat.id,
+            guid: `STUB-${id}`,
+            sender: "",
+            is_from_me: true,
+            text: "\uFFFC",
+            created_at: nowIso(),
+            attachments: [
+              {
+                filename: staged,
+                transfer_name: basename(file),
+                uti: "public.data",
+                mime_type: MIME_BY_EXT[ext] ?? "application/octet-stream",
+                total_bytes: statSync(file).size,
+              },
+            ],
+          });
+        }
       }
       saveDb(db);
       const reply = db.behavior?.auto_reply;

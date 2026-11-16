@@ -43,6 +43,10 @@ export function runCommand(
           reject(new Error(`${program} not found`));
           return;
         }
+        if (err && (err as NodeJS.ErrnoException).code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+          reject(new Error(`${program} printed more than 4 MB`));
+          return;
+        }
         if (err && err.killed) {
           reject(new Error(`${program} ${args.join(" ")} timed out after ${timeoutMs} ms`));
           return;

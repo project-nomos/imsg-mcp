@@ -7,6 +7,7 @@ export interface AttachmentMeta {
   mime: string | null;
   bytes: number | null;
   missing?: boolean;
+  sticker?: boolean;
 }
 
 /** One inbound message as kept in `state.db`. Text is stored in full and cut on output. */

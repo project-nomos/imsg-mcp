@@ -13,7 +13,7 @@ export function registerSendTool(server: McpServer, ctx: ToolContext): Registere
     {
       title: "Send a text message",
       description:
-        "Sends a real iMessage/SMS from the owner's number to a phone number, email or existing chat. The server delivers only to recipients on its allowlist and enforces a length limit and a rate limit; the result says whether the sent message was confirmed in history. Each call is a destructive action that the client asks the user to approve.",
+        "Sends a real iMessage/SMS from the owner's number to a phone number, email or existing chat: text, a file, or both. The file is either an attachment from a message (attachment_id, to forward it) or a new file you write (file). The server delivers only to recipients on its allowlist and enforces a length limit, file rules (files must be turned on; no programs or archives) and a rate limit; the result says whether the sent message was confirmed in history. Each call is a destructive action that the client asks the user to approve.",
       // Deliberately loose: the send service validates everything, so every call reaches it
       // and is audited, including malformed ones.
       inputSchema: {
@@ -31,8 +31,34 @@ export function registerSendTool(server: McpServer, ctx: ToolContext): Registere
           ),
         text: z
           .string()
+          .optional()
           .describe(
-            "The exact message text the user approved. Up to the server's max_chars (1,000 by default; see get_status).",
+            "The exact message text the user approved. Up to the server's max_chars (1,000 by default; see get_status). Optional when sending a file.",
+          ),
+        attachment_id: z
+          .string()
+          .optional()
+          .describe(
+            'Send this attachment, for example to forward a photo: the "id" of an entry in a message\'s attachments list. Needs files turned on (get_status: send.files).',
+          ),
+        file: z
+          .object({
+            name: z
+              .string()
+              .optional()
+              .describe("File name with an extension, such as invite.ics."),
+            text: z
+              .string()
+              .optional()
+              .describe("The content, for a text file (.ics, .vcf, .txt, .csv)."),
+            base64: z
+              .string()
+              .optional()
+              .describe("The content, base64-encoded, for any other file."),
+          })
+          .optional()
+          .describe(
+            "A new file to send, up to 5 MB: its name and its content as text or base64. Needs files turned on (get_status: send.files).",
           ),
       },
       annotations: {
@@ -52,6 +78,8 @@ export function registerSendTool(server: McpServer, ctx: ToolContext): Registere
             to: args.to,
             chat_id: args.chat_id,
             text: args.text,
+            attachment_id: args.attachment_id,
+            file: args.file,
           });
           const note =
             outcome.status === "sent"

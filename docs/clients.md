@@ -53,6 +53,7 @@ Claude Code signs in through a loopback redirect, which is why the people app al
       "mcp__imessage__get_messages",
       "mcp__imessage__check_new_messages",
       "mcp__imessage__search_messages",
+      "mcp__imessage__get_attachment",
       "mcp__imessage__get_status"
     ],
     "ask": ["mcp__imessage__send_message"]

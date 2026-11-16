@@ -41,11 +41,12 @@ function setConfig(overrides: Record<string, unknown>) {
 }
 
 describe("tool list", () => {
-  test("the owner sees all six tools when sending is on", async () => {
+  test("the owner sees all seven tools when sending is on", async () => {
     const { tools } = await owner.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         "check_new_messages",
+        "get_attachment",
         "get_messages",
         "get_status",
         "list_chats",
@@ -61,6 +62,8 @@ describe("tool list", () => {
     });
     const read = tools.find((t) => t.name === "get_messages")!;
     expect(read.annotations?.readOnlyHint).toBe(true);
+    const attachment = tools.find((t) => t.name === "get_attachment")!;
+    expect(attachment.annotations?.readOnlyHint).toBe(true);
   });
 
   test("with send.enabled = false, send_message is not in the list", async () => {
@@ -68,7 +71,18 @@ describe("tool list", () => {
     try {
       const { tools } = await owner.listTools();
       expect(tools.map((t) => t.name)).not.toContain("send_message");
-      expect(tools).toHaveLength(5);
+      expect(tools).toHaveLength(6);
+    } finally {
+      setConfig({});
+    }
+  });
+
+  test("with attachments.enabled = false, get_attachment is not in the list", async () => {
+    setConfig({ attachments: { enabled: false } });
+    try {
+      const { tools } = await owner.listTools();
+      expect(tools.map((t) => t.name)).not.toContain("get_attachment");
+      expect(tools.map((t) => t.name)).toContain("get_messages");
     } finally {
       setConfig({});
     }
@@ -143,7 +157,7 @@ describe("read tools", () => {
       sent_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/),
       service: "iMessage",
       text: "Photo from the trip",
-      attachments: [{ name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331 }],
+      attachments: [{ id: "1-14-0", name: "IMG_0412.HEIC", mime: "image/heic", bytes: 2104331 }],
     });
     expect(messages[1]).toMatchObject({ cursor: 12, from_me: true });
     expect(res.untrusted_content).toBe(true);

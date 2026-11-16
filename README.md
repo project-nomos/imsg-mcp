@@ -2,7 +2,7 @@
 
 Let your AI assistant read your iMessage and SMS conversations and send the replies you approve.
 
-imsg-mcp is an open-source [MCP](https://modelcontextprotocol.io) server that runs on a Mac you own. Claude, ChatGPT, Codex, Cursor and other MCP clients connect to it from any device. They can list your chats, read and search history, and catch up on what arrived since they last looked. Sending stays off until you turn it on, and then the server decides who can be texted and how often.
+imsg-mcp is an open-source [MCP](https://modelcontextprotocol.io) server that runs on a Mac you own. Claude, ChatGPT, Codex, Cursor and other MCP clients connect to it from any device. They can list your chats, read and search history, catch up on what arrived since they last looked, and open the photos, videos, PDFs and documents people send you. Sending stays off until you turn it on, and then the server decides who can be texted and how often.
 
 It suits proactive assistants such as [Claude Duet](https://claude.com/product/claude-duet) and [dots in ChatGPT](https://learn.chatgpt.com/docs/dots), which check your accounts on their own and ask before they act. In our tests Duet read texts and sent an approved reply through imsg-mcp as a custom connector; support in dots is still unconfirmed. [Works with](#works-with) has the details.
 
@@ -12,6 +12,9 @@ Claude → check_new_messages → "Sam says he's running 10 min late. Your mom s
 
 You: "Tell Sam no rush."
 Claude → "I'll send 'No rush!' to Sam (+1 415 555 0123). OK?"  → you approve → send_message
+
+You: "What's in the photo Mom sent?"
+Claude → get_attachment → "It's the three of you at the lake, with the boat behind you."
 ```
 
 `imsg-mcp` is a thin TypeScript server on top of [`imsg`](https://github.com/steipete/imsg), which does the actual Messages work. It adds the MCP tools, authentication, a send fence, an audit log, and the plumbing to run unattended on a Mac mini.
@@ -35,7 +38,8 @@ Setup for each is in [docs/clients.md](docs/clients.md). If you use it with anot
 
 ## Features
 
-- **Six tools:** `list_chats`, `get_messages`, `check_new_messages`, `search_messages`, `get_status`, and `send_message` (registered only when sending is enabled).
+- **Seven tools:** `list_chats`, `get_messages`, `check_new_messages`, `search_messages`, `get_attachment`, `get_status`, and `send_message` (registered only when sending is enabled).
+- **Attachments.** `get_attachment` shows photos as images (HEIC converted), PDFs as text and page images, videos as still frames, and Word, RTF, contact cards and calendar invites as text. Conversion uses macOS's own tools inside a sandbox with no access to your files, with remote content loading turned off. With sending files turned on, `send_message` can also forward an attachment or send a file the assistant writes, such as a calendar invite.
 - **Cursor-based catch-up.** A watch stream stores inbound texts locally, so an agent can ask "what's new since cursor N?" and nothing is lost across restarts.
 - **Fenced sending.** Off by default; recipient allowlist (every member of a group must be allowed); length limit; sliding-window rate limit shared by all clients; sends confirmed against Messages history; before-and-after audit records.
 - **Prompt-injection hygiene.** Every result that contains third-party text is flagged `untrusted_content` with a note telling the model to treat it as data.
@@ -147,14 +151,15 @@ This is the deployment the project is designed around: a dedicated Mac that keep
 
 ## Tools
 
-| Tool                 | What it does                                                                   | Notes                                                                 |
-| -------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
-| `list_chats`         | Recent conversations, optionally filtered by name, number or email             | `query?`, `limit?` (20, max 100)                                      |
-| `get_messages`       | History of one chat, oldest to newest, with `prev_cursor` for paging back      | `chat_id`, `limit?` (30, max 200), `before_cursor?`, `start?`, `end?` |
-| `check_new_messages` | Inbound texts after a cursor, across all readable chats                        | `since_cursor?` (omit: last 24 h), `chat_id?`, `limit?` (50, max 200) |
-| `search_messages`    | Case-insensitive text search, newest first                                     | `query`, `chat_id?`, `start?`, `end?`, `limit?` (20, max 50)          |
-| `get_status`         | imsg version, watch health, last inbound time, send settings, rate budget left | no inputs                                                             |
-| `send_message`       | Send a text to a phone number, email or existing chat                          | `to` or `chat_id`, `text`. Only exists when `send.enabled = true`     |
+| Tool                 | What it does                                                                   | Notes                                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `list_chats`         | Recent conversations, optionally filtered by name, number or email             | `query?`, `limit?` (20, max 100)                                                                                               |
+| `get_messages`       | History of one chat, oldest to newest, with `prev_cursor` for paging back      | `chat_id`, `limit?` (30, max 200), `before_cursor?`, `start?`, `end?`                                                          |
+| `check_new_messages` | Inbound texts after a cursor, across all readable chats                        | `since_cursor?` (omit: last 24 h), `chat_id?`, `limit?` (50, max 200)                                                          |
+| `search_messages`    | Case-insensitive text search, newest first                                     | `query`, `chat_id?`, `start?`, `end?`, `limit?` (20, max 50)                                                                   |
+| `get_attachment`     | A photo, video, PDF or document from a message, as images and text             | `attachment_id` (from a message), `pages?` (PDFs)                                                                              |
+| `get_status`         | imsg version, watch health, last inbound time, send settings, rate budget left | no inputs                                                                                                                      |
+| `send_message`       | Send a text, a file or both to a phone number, email or existing chat          | `to` or `chat_id`, `text`, `attachment_id?` or `file?`. Only exists when `send.enabled = true`; files need `send.files = true` |
 
 Messages come back in one shape:
 
@@ -169,7 +174,9 @@ Messages come back in one shape:
   "sent_at": "2026-11-13T18:04:11Z",
   "service": "iMessage",
   "text": "Running 10 min late",
-  "attachments": [{ "name": "IMG_0412.HEIC", "mime": "image/heic", "bytes": 2104331 }]
+  "attachments": [
+    { "id": "42-918233-0", "name": "IMG_0412.HEIC", "mime": "image/heic", "bytes": 2104331 }
+  ]
 }
 ```
 
@@ -177,13 +184,14 @@ Full reference, including errors and cursor semantics: [docs/tools.md](docs/tool
 
 ## Security model in one screen
 
-| Risk                                                     | What stops it                                                                                                                                                               |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A stranger's text tells the assistant to message someone | Sending off by default; server-side allowlist; client approval on every send; rate limit; `untrusted_content` flags                                                         |
-| The assistant texts the wrong person, or floods someone  | Allowlist checked on the server for every send (all group members must be allowed); 1,000-character limit; 10 sends/hour and 40/day by default; every send in the audit log |
-| Someone reaches the server without signing in            | No open ports (outbound tunnel only); Cloudflare Access in front; the server binds to loopback and still verifies the Access JWT on every request (`403` otherwise)         |
-| A leaked machine token                                   | Service tokens get the `read` role unless you choose otherwise; revoke in the Zero Trust dashboard                                                                          |
-| Too much power on the Mac                                | Non-admin bot user; Full Disk Access granted to one signed binary, never to Terminal, `node` or `python3`                                                                   |
+| Risk                                                     | What stops it                                                                                                                                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A stranger's text tells the assistant to message someone | Sending off by default; server-side allowlist; client approval on every send; rate limit; `untrusted_content` flags                                                                                 |
+| A booby-trapped photo or PDF                             | Attachments open only on request, only from the Messages attachments folder, converted by macOS tools in a sandbox (no home folder, no Apple Events, no network of its own) with remote loading off |
+| The assistant texts the wrong person, or floods someone  | Allowlist checked on the server for every send (all group members must be allowed); 1,000-character limit; 10 sends/hour and 40/day by default; every send in the audit log                         |
+| Someone reaches the server without signing in            | No open ports (outbound tunnel only); Cloudflare Access in front; the server binds to loopback and still verifies the Access JWT on every request (`403` otherwise)                                 |
+| A leaked machine token                                   | Service tokens get the `read` role unless you choose otherwise; revoke in the Zero Trust dashboard                                                                                                  |
+| Too much power on the Mac                                | Non-admin bot user; Full Disk Access granted to one signed binary, never to Terminal, `node` or `python3`                                                                                           |
 
 More, including the audit log format and kill switches: [docs/security.md](docs/security.md).
 
@@ -227,7 +235,8 @@ The integration tests run the real server against `test/fixtures/stub-imsg.ts`, 
 
 - No typing indicators, read receipts, edits, tapbacks or polls: those need imsg's private-API bridge, which requires turning off System Integrity Protection.
 - No push: agents poll `check_new_messages` with a cursor.
-- No sending attachments. Inbound attachment metadata (name, type, size) is included; file contents never leave the Mac.
+- Videos are shown as still frames and audio as its length; nothing is played or transcribed (a voice message's transcript appears when Messages made one). Converting HEIC, PDFs, videos and documents needs macOS.
+- One file per send (imsg's limit). New files from the assistant are capped at 5 MB, because they travel inside the tool call.
 - Remote mode is built for a single owner. The Messages API MCP connector is not supported (it sends only a bearer token, not Cloudflare's service-token headers).
 
 ## FAQ
