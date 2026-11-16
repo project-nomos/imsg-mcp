@@ -40,6 +40,7 @@ function iso(ms: number | undefined): string | null {
 export class HealthMonitor {
   messagesRunning: boolean | undefined;
   private lastRelaunchAt = 0;
+  private relaunch = true;
   private heartbeatSentAt: number | undefined;
   private heartbeatError: string | undefined;
   private readonly timers: ReturnType<typeof setInterval>[] = [];
@@ -51,9 +52,14 @@ export class HealthMonitor {
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
-  /** Starts the timers. Stdio mode passes `heartbeat: false`: several local copies may run. */
-  start(opts: { heartbeat?: boolean } = {}): void {
+  /**
+   * Starts the timers. Stdio mode passes `heartbeat: false` (several local copies may run)
+   * and `relaunchMessages: false`: on someone's own Mac, starting a client should not open
+   * Messages. A send that finds Messages closed still opens it (`health.relaunch_messages`).
+   */
+  start(opts: { heartbeat?: boolean; relaunchMessages?: boolean } = {}): void {
     const cfg = this.app.config.current;
+    this.relaunch = opts.relaunchMessages !== false;
     void this.checkMessagesApp().catch(() => undefined);
     const every = (ms: number, fn: () => Promise<unknown>) => {
       const t = setInterval(() => {
@@ -98,6 +104,7 @@ export class HealthMonitor {
     const cfg = this.app.config.current;
     if (
       !running &&
+      this.relaunch &&
       cfg.health.relaunch_messages &&
       this.app.now() - this.lastRelaunchAt > 300_000
     ) {

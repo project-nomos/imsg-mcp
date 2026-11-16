@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { cpSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tempDir } from "../helpers/harness";
 
-// The release pipeline: scripts/bump-version.sh starts it, the Release workflow runs
-// scripts/release-notes.sh, scripts/build-mcpb.sh (with deploy/mcpb/manifest.json) and
-// scripts/server-json.sh. These tests keep the pieces in step with each other.
+// The release pipeline: the Release workflow asks scripts/next-version.sh for the version,
+// runs scripts/bump-version.sh, then scripts/release-notes.sh, scripts/build-mcpb.sh (with
+// deploy/mcpb/manifest.json) and scripts/server-json.sh. These tests keep the pieces in
+// step with each other.
 
 const ROOT = join(import.meta.dir, "..", "..");
 const VERSIONED = [
@@ -114,47 +115,100 @@ describe("release scripts", () => {
   });
 });
 
-describe("bump-version.sh", () => {
-  /** A copy of the files the script edits, so the test never touches the repo. */
-  function copy(): string {
-    const dir = tempDir("imsg-mcp-bump-");
-    for (const f of [...VERSIONED, "CHANGELOG.md", "scripts/bump-version.sh"]) {
-      mkdirSync(join(dir, dirname(f)), { recursive: true });
-      cpSync(join(ROOT, f), join(dir, f));
-    }
-    return dir;
-  }
-  const current = readJson<{ version: string }>(join(ROOT, "package.json")).version;
-  const [major, minor] = current.split(".").map(Number);
-  const next = `${major}.${minor! + 1}.0`;
+/** A changelog with notes waiting under Unreleased, in the repo's format. */
+function changelog(unreleased: string, current: string): string {
+  return [
+    "# Changelog",
+    "",
+    "## [Unreleased]",
+    "",
+    unreleased,
+    "",
+    `## [${current}] - 2026-11-13`,
+    "",
+    "First release.",
+    "",
+    `[Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v${current}...HEAD`,
+    `[${current}]: https://github.com/project-nomos/imsg-mcp/releases/tag/v${current}`,
+    "",
+  ].join("\n");
+}
 
+/**
+ * A copy of the files the release scripts read and edit, so the tests never touch the
+ * repo. The changelog is written fresh: after a release the repo's Unreleased is empty.
+ */
+function copy(unreleased = "### Added\n\n- Something new."): string {
+  const dir = tempDir("imsg-mcp-release-");
+  for (const f of [...VERSIONED, "scripts/bump-version.sh", "scripts/next-version.sh"]) {
+    mkdirSync(join(dir, dirname(f)), { recursive: true });
+    cpSync(join(ROOT, f), join(dir, f));
+  }
+  writeFileSync(join(dir, "CHANGELOG.md"), changelog(unreleased, current));
+  return dir;
+}
+
+const current = readJson<{ version: string }>(join(ROOT, "package.json")).version;
+const [major, minor, patch] = current.split(".").map(Number) as [number, number, number];
+const nextMinor = `${major}.${minor + 1}.0`;
+const nextPatch = `${major}.${minor}.${patch + 1}`;
+
+describe("next-version.sh", () => {
+  const next = (unreleased: string) => sh("next-version.sh", [], copy(unreleased));
+
+  test("Added, Changed, Deprecated or Removed entries make a minor release", () => {
+    for (const section of ["Added", "Changed", "Deprecated", "Removed"]) {
+      expect(next(`### ${section}\n\n- An entry.`).stdout.trim()).toBe(nextMinor);
+    }
+    expect(next("### Fixed\n\n- A fix.\n\n### Added\n\n- A feature.").stdout.trim()).toBe(
+      nextMinor,
+    );
+  });
+
+  test("only Fixed or Security entries make a patch release", () => {
+    expect(next("### Fixed\n\n- A fix.").stdout.trim()).toBe(nextPatch);
+    expect(next("### Security\n\n- An update.\n  More about it.").stdout.trim()).toBe(nextPatch);
+  });
+
+  test("no entries, or headings without entries, release nothing", () => {
+    for (const unreleased of ["", "### Added", "### Added\n\nSome prose, not an entry."]) {
+      const r = next(unreleased);
+      expect(r.code).toBe(0);
+      expect(r.stdout).toBe("");
+    }
+  });
+});
+
+describe("bump-version.sh", () => {
   test("changes only the version lines and opens a changelog section for the release", () => {
     const dir = copy();
-    const r = sh("bump-version.sh", [next], dir);
+    const r = sh("bump-version.sh", [nextMinor], dir);
     expect(r.stderr).toBe("");
     expect(r.code).toBe(0);
     for (const f of VERSIONED) {
       const before = readFileSync(join(ROOT, f), "utf8").split("\n");
       const after = readFileSync(join(dir, f), "utf8").split("\n");
-      expect(readJson<{ version: string }>(join(dir, f)).version).toBe(next);
+      expect(readJson<{ version: string }>(join(dir, f)).version).toBe(nextMinor);
       const changed = after.filter((line, i) => line !== before[i]);
-      expect(changed).toEqual([expect.stringContaining(`"version": "${next}"`)]);
+      expect(changed).toEqual([expect.stringContaining(`"version": "${nextMinor}"`)]);
     }
-    const changelog = readFileSync(join(dir, "CHANGELOG.md"), "utf8");
-    expect(changelog).toMatch(
-      new RegExp(`## \\[Unreleased\\]\\n\\n## \\[${next}\\] - \\d{4}-\\d{2}-\\d{2}\\n`),
+    const log = readFileSync(join(dir, "CHANGELOG.md"), "utf8");
+    expect(log).toMatch(
+      new RegExp(`## \\[Unreleased\\]\\n\\n## \\[${nextMinor}\\] - \\d{4}-\\d{2}-\\d{2}\\n`),
     );
-    expect(changelog).toContain(
-      `[Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v${next}...HEAD\n` +
-        `[${next}]: https://github.com/project-nomos/imsg-mcp/releases/tag/v${next}\n`,
+    expect(log).toContain(
+      `[Unreleased]: https://github.com/project-nomos/imsg-mcp/compare/v${nextMinor}...HEAD\n` +
+        `[${nextMinor}]: https://github.com/project-nomos/imsg-mcp/releases/tag/v${nextMinor}\n`,
     );
+    // The notes moved, so the next version has nothing to release yet.
+    expect(sh("next-version.sh", [], dir).stdout).toBe("");
   });
 
   test("refuses the current version, an older one, and an empty Unreleased section", () => {
     expect(sh("bump-version.sh", [current], copy()).code).toBe(64);
     expect(sh("bump-version.sh", ["0.0.1"], copy()).code).toBe(64);
     const dir = copy();
-    expect(sh("bump-version.sh", [next], dir).code).toBe(0);
-    expect(sh("bump-version.sh", [`${major}.${minor! + 2}.0`], dir).code).toBe(65);
+    expect(sh("bump-version.sh", [nextMinor], dir).code).toBe(0);
+    expect(sh("bump-version.sh", [`${major}.${minor + 2}.0`], dir).code).toBe(65);
   });
 });

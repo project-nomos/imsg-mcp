@@ -173,6 +173,25 @@ describe("health endpoint", () => {
     expect(h.messagesApp.launches).toBe(launches + 1);
   });
 
+  test("in stdio mode it reports a closed Messages.app but never opens it", async () => {
+    const monitor = new HealthMonitor(h.app);
+    h.app.config.set({
+      ...h.app.config.current,
+      health: { ...h.app.config.current.health, relaunch_messages: true },
+    });
+    h.messagesApp.running = false;
+    const launches = h.messagesApp.launches;
+    monitor.start({ heartbeat: false, relaunchMessages: false });
+    try {
+      expect(await monitor.checkMessagesApp()).toBe(false);
+      expect(h.messagesApp.launches).toBe(launches);
+      expect(monitor.snapshot().problems).toContain("Messages.app is not running");
+    } finally {
+      monitor.stop();
+      h.messagesApp.running = true;
+    }
+  });
+
   test("the heartbeat goes out only while healthy", async () => {
     const pings: string[] = [];
     const fakeFetch = (async (u: string) => {

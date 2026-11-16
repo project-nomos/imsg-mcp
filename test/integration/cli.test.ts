@@ -15,7 +15,10 @@ interface Env {
   env: Record<string, string>;
 }
 
-/** A temp HOME-like layout with a config that points imsg.path at the stub. */
+/**
+ * A temp HOME-like layout with a config that points imsg.path at the stub. The config
+ * turns off opening Messages.app, so serve-mode tests never launch it on a Mac.
+ */
 function setup(configBody: string, stubEnv: Record<string, string> = {}): Env {
   const dir = tempDir("imsg-mcp-cli-");
   const dbPath = join(dir, "chatdb.json");
@@ -24,7 +27,11 @@ function setup(configBody: string, stubEnv: Record<string, string> = {}): Env {
   writeFileSync(wrapper, `#!/bin/sh\nexec "${process.execPath}" "${STUB}" "$@"\n`);
   chmodSync(wrapper, 0o755);
   const configPath = join(dir, "config.toml");
-  writeFileSync(configPath, `[imsg]\npath = "${wrapper}"\n${configBody}`, { mode: 0o600 });
+  writeFileSync(
+    configPath,
+    `[imsg]\npath = "${wrapper}"\n[health]\nrelaunch_messages = false\n${configBody}`,
+    { mode: 0o600 },
+  );
   return {
     dir,
     configPath,

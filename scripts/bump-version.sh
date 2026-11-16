@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Prepares a release: sets the version in package.json, both plugin manifests and the
 # bundle manifest, and moves CHANGELOG.md's Unreleased notes under a heading for it.
-# Commit the result and push it to main; the Release workflow does the rest.
+# The Release workflow runs it (with the version from scripts/next-version.sh) and
+# commits the result; there is no need to run it by hand.
 #
 #   scripts/bump-version.sh 0.2.0
 set -euo pipefail
@@ -49,4 +50,4 @@ NEW="$new" DATE="$date" REPO="$repo" perl -0pi -e '
   s{^\[Unreleased\]: \S+$}{[Unreleased]: $ENV{REPO}/compare/v$ENV{NEW}...HEAD\n[$ENV{NEW}]: $ENV{REPO}/releases/tag/v$ENV{NEW}}m;
 ' CHANGELOG.md
 
-echo "Version $old -> $new. Review CHANGELOG.md, then commit and push to main to release."
+echo "Version $old -> $new."

@@ -1,24 +1,32 @@
 name: Release
 
-# A release happens when a commit on main changes the version in package.json:
-# run scripts/bump-version.sh X.Y.Z, commit, push. The workflow checks the code, builds
-# the binaries and the MCP Bundle, publishes the GitHub release with the CHANGELOG notes,
-# and lists it in the official MCP Registry. Run it by hand with "dry run" on to build and
-# validate everything without publishing.
+# Every push to main that adds entries under "Unreleased" in CHANGELOG.md is released:
+# scripts/next-version.sh picks the version (a minor bump for Added, Changed, Deprecated
+# or Removed entries, a patch for Fixed or Security only), scripts/bump-version.sh moves
+# the notes under it, and after the checks and the build pass, the release commit and
+# tag go to main in one push. Then the GitHub release is published with the binaries
+# and the MCP Bundle, and the version is listed in the official MCP Registry.
+#
+# Pushes without changelog entries release nothing. Run the workflow by hand to build
+# and validate without publishing (dry run), or to release a version you choose.
+# A run that fails after pushing the tag can be re-run: it picks up from the tag.
 
 on:
   push:
     branches: [main]
-    paths: [package.json]
   workflow_dispatch:
     inputs:
       dry_run:
         description: Build and validate only; publish nothing
         type: boolean
         default: true
+      version:
+        description: Release this version (X.Y.Z) instead of the one the changelog implies
+        type: string
+        required: false
 
 permissions:
-  contents: write # the tag and the GitHub release
+  contents: write # the release commit, the tag and the GitHub release
   id-token: write # MCP Registry login through GitHub OIDC
 
 concurrency:
@@ -27,48 +35,91 @@ concurrency:
 
 env:
   BUN_VERSION: "1.4.4"
+  MCPB_VERSION: "2.1.2"
   MCP_PUBLISHER_VERSION: v1.8.7
 
 jobs:
   release:
-    name: Build and publish
+    name: Release
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0 # tags
+          fetch-depth: 0 # tags, and the history the release commit goes on top of
 
       - name: Decide what to do
         id: plan
         env:
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          VERSION_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version="$(jq -r .version package.json)"
-          tag="v${version}"
-          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then new=false; else new=true; fi
-          build=false; publish=false
-          if [ "$DRY_RUN" = "true" ]; then build=true
-          elif [ "$new" = "true" ]; then build=true; publish=true
-          else echo "::notice::${tag} is already released; nothing to do."
+          set -euo pipefail
+          if [ "$DRY_RUN" != "true" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases are published from main only. Run from another branch with dry run on."
+            exit 1
           fi
+          # A tag without a release: a run pushed it, failed, and was not re-run before this push.
+          current="$(jq -r .version package.json)"
+          if git rev-parse -q --verify "refs/tags/v${current}" >/dev/null && ! gh release view "v${current}" >/dev/null 2>&1; then
+            echo "::warning::v${current} is tagged but has no GitHub release. Re-run the Release run that tagged it, or publish it by hand."
+          fi
+          version="${VERSION_INPUT:-$(scripts/next-version.sh)}"
+          if [ -z "$version" ]; then
+            echo "::notice::Nothing under Unreleased in CHANGELOG.md, so there is nothing to release."
+            echo "mode=none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The version must look like X.Y.Z."
+            exit 1
+          fi
+          tag="v${version}"
+          mode=release
+          if [ "$DRY_RUN" = "true" ]; then
+            mode=dry-run
+          elif git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            # An earlier attempt of this run pushed the release commit and tag, then failed.
+            if [ "$(git rev-parse "${tag}^{commit}^")" = "$GITHUB_SHA" ]; then
+              mode=resume
+              echo "::notice::${tag} was pushed by an earlier attempt; publishing it."
+            else
+              echo "::error::${tag} already exists. Add entries under Unreleased or choose another version."
+              exit 1
+            fi
+          fi
+          echo "::notice::Mode: ${mode}, version ${version}"
           {
+            echo "mode=${mode}"
             echo "version=${version}"
             echo "tag=${tag}"
-            echo "build=${build}"
-            echo "publish=${publish}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Check out the tag (resume)
+        if: steps.plan.outputs.mode == 'resume'
+        env:
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: git checkout --detach "$TAG"
+
+      - name: Set the version and move the changelog notes
+        if: steps.plan.outputs.mode == 'release' || steps.plan.outputs.mode == 'dry-run'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: scripts/bump-version.sh "$VERSION"
+
       - uses: oven-sh/setup-bun@v2
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - if: steps.plan.outputs.build == 'true'
+      - if: steps.plan.outputs.mode != 'none'
         run: bun install --frozen-lockfile
-      - if: steps.plan.outputs.build == 'true'
+      - if: steps.plan.outputs.mode != 'none'
         run: bun run check
+        timeout-minutes: 15
 
       - name: Release notes
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
         env:
           VERSION: ${{ steps.plan.outputs.version }}
         run: |
@@ -85,7 +136,8 @@ jobs:
           EOF
 
       - name: Build binaries
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
+        timeout-minutes: 10
         env:
           VERSION: ${{ steps.plan.outputs.version }}
         run: |
@@ -95,27 +147,43 @@ jobs:
           tar -C dist/arm64 -czf "out/imsg-mcp-v${VERSION}-darwin-arm64.tar.gz" imsg-mcp
           tar -C dist/x64 -czf "out/imsg-mcp-v${VERSION}-darwin-x64.tar.gz" imsg-mcp
 
+      - name: Install the MCP Bundle CLI
+        if: steps.plan.outputs.mode != 'none'
+        timeout-minutes: 5
+        run: |
+          # Kept out of package.json so the repo's dependency audit covers only what ships.
+          mkdir -p "$RUNNER_TEMP/mcpb"
+          cd "$RUNNER_TEMP/mcpb"
+          echo '{"private": true}' > package.json
+          bun add --exact "@anthropic-ai/mcpb@${MCPB_VERSION}" </dev/null
+          echo "MCPB=node $RUNNER_TEMP/mcpb/node_modules/@anthropic-ai/mcpb/dist/cli/cli.js" >> "$GITHUB_ENV"
+
       - name: Build the MCP Bundle
         id: mcpb
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
+        timeout-minutes: 5
         run: |
+          set -euo pipefail
           result="$(scripts/build-mcpb.sh dist/arm64/imsg-mcp out)"
-          echo "sha256=$(printf '%s\n' "$result" | sed -n 2p)" >> "$GITHUB_OUTPUT"
+          sha256="$(printf '%s\n' "$result" | sed -n 2p)"
+          [[ "$sha256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::no SHA-256 from build-mcpb.sh"; exit 1; }
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
           (cd out && shasum -a 256 ./*.tar.gz ./*.mcpb > SHA256SUMS)
 
       - name: Write the MCP Registry entry
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
         env:
           VERSION: ${{ steps.plan.outputs.version }}
           SHA256: ${{ steps.mcpb.outputs.sha256 }}
         run: scripts/server-json.sh "$VERSION" "$SHA256" > server.json
 
       - name: Install cosign
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Download and verify mcp-publisher
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
+        timeout-minutes: 5
         run: |
           set -euo pipefail
           os="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -133,11 +201,11 @@ jobs:
           rm -f "$archive" "$archive.sigstore.json"
 
       - name: Validate the MCP Registry entry
-        if: steps.plan.outputs.build == 'true'
+        if: steps.plan.outputs.mode != 'none'
         run: ./mcp-publisher validate
 
       - name: Keep the files (dry run)
-        if: steps.plan.outputs.build == 'true' && steps.plan.outputs.publish != 'true'
+        if: steps.plan.outputs.mode == 'dry-run'
         uses: actions/upload-artifact@v7
         with:
           name: release-dry-run
@@ -145,21 +213,46 @@ jobs:
             out/
             server.json
             release-notes.md
+            CHANGELOG.md
           retention-days: 7
 
+      - name: Push the release commit and tag
+        id: push
+        if: steps.plan.outputs.mode == 'release'
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json plugins/imsg-mcp/plugin.json plugins/imsg-mcp/.claude-plugin/plugin.json deploy/mcpb/manifest.json CHANGELOG.md
+          git fetch --quiet origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then
+            echo "::warning::main moved while this run was building, so nothing was released. The run for the newer push releases these changes too."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit -m "release: ${TAG}"
+          git tag -a "$TAG" -m "$TAG"
+          # One atomic push: the commit and the tag land together or not at all, and main
+          # only fast-forwards. With branch protection on main, allow GitHub Actions to push.
+          git push --atomic origin HEAD:refs/heads/main "refs/tags/${TAG}"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
       - name: Publish the GitHub release
-        if: steps.plan.outputs.publish == 'true'
+        if: steps.plan.outputs.mode == 'resume' || steps.push.outputs.pushed == 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.plan.outputs.tag }}
-          target_commitish: ${{ github.sha }}
           name: ${{ steps.plan.outputs.tag }}
           body_path: release-notes.md
           files: out/*
           fail_on_unmatched_files: true
+          make_latest: true
 
       - name: Publish to the MCP Registry
-        if: steps.plan.outputs.publish == 'true'
+        if: steps.plan.outputs.mode == 'resume' || steps.push.outputs.pushed == 'true'
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish

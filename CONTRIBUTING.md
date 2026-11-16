@@ -32,7 +32,7 @@ Running against your real Messages needs Full Disk Access for your terminal (loc
 1. Open an issue first for anything beyond a small fix, especially changes to authentication, the send rules, or what data leaves the Mac.
 2. Branch from `main`.
 3. Add or update tests. Bug fixes need a test that fails without the fix. The stub imsg (`test/fixtures/stub-imsg.ts`) can simulate most situations; extend it rather than mocking internals.
-4. Update the docs in `docs/` and the `CHANGELOG.md` "Unreleased" section.
+4. Update the docs in `docs/`, and add a line under "Unreleased" in `CHANGELOG.md` for anything users would notice. That line is what releases it (see [Releasing](#releasing)).
 5. `bun run check` must pass.
 6. Open a pull request using the template.
 
@@ -66,13 +66,24 @@ Check its `docs/rpc.md` and payload builders, add any new behaviour to the stub 
 
 ## Releasing
 
-Releases run themselves once the version changes on `main`:
+Every merge to `main` that adds entries under "Unreleased" in `CHANGELOG.md` is released automatically, so the changelog decides what ships:
 
-1. `scripts/bump-version.sh X.Y.Z` sets the version in `package.json`, both plugin manifests and the bundle manifest, and moves the changelog's Unreleased notes under `## [X.Y.Z]`.
-2. Review `CHANGELOG.md`, commit (`release: vX.Y.Z`) and push to `main`.
-3. The Release workflow checks the code and builds the arm64 and x64 binaries and the MCP Bundle (`.mcpb`). It then creates the `vX.Y.Z` tag and GitHub release with the changelog notes, and publishes the release to the official MCP Registry as `io.github.project-nomos/imsg-mcp`. The registry login uses GitHub's OIDC token, so no secret is involved.
+| Unreleased has entries under                    | Release                                |
+| ----------------------------------------------- | -------------------------------------- |
+| Added, Changed, Deprecated or Removed           | Next minor (0.2.0 to 0.3.0)            |
+| Only Fixed or Security                          | Next patch (0.2.0 to 0.2.1)            |
+| Nothing (docs fixes, CI, dependency bumps, ...) | No release; it ships with the next one |
 
-To try the pipeline without publishing anything, run the workflow by hand (**Actions → Release → Run workflow**) with **dry run** on. It builds everything, validates the bundle and the registry entry, and keeps the files as a workflow artifact for a week.
+The Release workflow (`.github/workflows/release.yml`) then:
+
+1. Picks the version with `scripts/next-version.sh` and runs `scripts/bump-version.sh`, which sets it in `package.json`, both plugin manifests and the bundle manifest, and moves the Unreleased notes under `## [X.Y.Z]`.
+2. Runs `bun run check`, and builds the arm64 and x64 binaries and the MCP Bundle (`.mcpb`).
+3. Pushes a `release: vX.Y.Z` commit and the `vX.Y.Z` tag to `main` in one atomic push, as `github-actions[bot]`. If `main` moved during the run, it stops; the run for the newer merge releases everything.
+4. Publishes the GitHub release with the changelog notes and the files, and lists the version in the official MCP Registry as `io.github.project-nomos/imsg-mcp`. The registry login uses GitHub's OIDC token, so no secret is involved.
+
+A major version is never picked automatically: run the workflow by hand (**Actions → Release → Run workflow**) on `main` with **dry run** off and **version** set, for example `1.0.0`. With **dry run** on (the default), a manual run builds everything, validates the bundle and the registry entry, and keeps the files as a workflow artifact for a week, without publishing. A run that fails after pushing the tag can be re-run; it picks up from the tag.
+
+If you protect `main` with a ruleset, let GitHub Actions bypass it, or the release commit cannot be pushed.
 
 ## Reporting issues
 

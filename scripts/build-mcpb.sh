@@ -34,8 +34,11 @@ cp LICENSE "$stage/LICENSE"
 cp "$binary" "$stage/server/imsg-mcp"
 chmod 755 "$stage/server/imsg-mcp"
 
-"${mcpb[@]}" validate "$stage/manifest.json"
+# stdin is closed so the CLI can never wait for an answer; progress goes to stderr.
+echo "build-mcpb: validating the manifest with ${mcpb[*]}" >&2
+"${mcpb[@]}" validate "$stage/manifest.json" </dev/null >&2
 out="$outdir/imsg-mcp-${version}-darwin-arm64.mcpb"
-"${mcpb[@]}" pack "$stage" "$out" >/dev/null
+echo "build-mcpb: packing $out" >&2
+"${mcpb[@]}" pack "$stage" "$out" </dev/null >/dev/null
 echo "$out"
 shasum -a 256 "$out" | cut -d' ' -f1

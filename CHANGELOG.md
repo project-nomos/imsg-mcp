@@ -13,7 +13,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Agent plugin in `plugins/imsg-mcp` with an `imessage` skill (finding chats, catching up with cursors, treating message text as untrusted, showing the exact draft before any send). It is packaged as an [Agent Plugins 1.0](https://agent-plugins.org/) package for ChatGPT, Codex, Cursor, VS Code, GitHub Copilot and Kiro, with an `mcp.example.json` template for your server, and as a Claude Code plugin with a marketplace in `.claude-plugin/` that includes the server and asks for its URL. Tests validate it against the official Agent Plugins schemas.
 - Docs: a "Works with" table in the README with an honest status per assistant; setup for ChatGPT and dots, Codex, Cursor, VS Code, GitHub Copilot, Kiro, Gemini and Perplexity; uploading the skill to a Claude account; the redirect URIs each web client needs in Cloudflare Access; a note that the project is independent of the companies whose products it works with.
 - `docs/privacy.md`: what the server reads, what it keeps and for how long, and where data goes.
-- Automatic releases: when a commit on `main` changes the version (`scripts/bump-version.sh`), the Release workflow builds the binaries and an MCP Bundle, publishes the GitHub release with the changelog notes, and lists the release in the official MCP Registry as `io.github.project-nomos/imsg-mcp`. Run it by hand with **dry run** to build and validate without publishing.
+- Automatic releases: every merge to `main` that adds entries under Unreleased in this changelog is released. The entries pick the version (a minor release for Added, Changed, Deprecated or Removed; a patch for only Fixed or Security). The Release workflow builds the binaries and an MCP Bundle, pushes the release commit and tag, publishes the GitHub release with the changelog notes, and lists the release in the official MCP Registry as `io.github.project-nomos/imsg-mcp`. Run it by hand with **dry run** to build and validate without publishing, or with a version for a major release.
 - MCP Bundle (`.mcpb`, Apple silicon) on each release: a one-file install of local mode in Claude Desktop.
 - `deploy/demo/Dockerfile`: a demo image for MCP directories that start a server to check its tools. It runs stdio mode against the test stand-in for imsg with sample conversations. Also `glama.json`, which names the maintainer for Glama.
 - Local stdio mode starts read-only on the defaults when there is no config file, so a client or the bundle can run it before `imsg-mcp init`. An invalid file still stops it.
@@ -24,6 +24,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Changed
 
+- Local (stdio) mode no longer opens Messages.app when a client starts it; a send still opens Messages if it is closed. Serve mode keeps relaunching it (`health.relaunch_messages`).
 - Docs: the tunnel is now created with `cloudflared` commands and run as a LaunchAgent of the service user, started only once Access protects the hostnames. A dashboard tunnel with a root LaunchDaemon is the alternative. The machines Access application is marked optional.
 
 ## [0.1.0] - 2026-11-13

@@ -267,7 +267,7 @@ async function stdio(args: Args, paths: Paths): Promise<void> {
   }
   app.start();
   const monitor = new HealthMonitor(app);
-  monitor.start({ heartbeat: false });
+  monitor.start({ heartbeat: false, relaunchMessages: false });
   const session = await serveStdio(app);
   handleReload(config, logger);
 
