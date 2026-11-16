@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, test } from "bun:test";
 import {
   linkSync,
   mkdirSync,
@@ -379,13 +379,18 @@ describe("rendering with converters (fakes)", () => {
 });
 
 describe.skipIf(!MAC)("rendering with the macOS converters (sandboxed)", () => {
+  // Bun runs a describe body even when the block is skipped, so the macOS-only setup
+  // lives in beforeAll, which a skipped block never runs.
   const dir = tempDir("imsg-mcp-render-mac-");
-  const tools = systemConverterTools(homedir());
-  const sips = (args: string[]) => Bun.spawnSync(["/usr/bin/sips", ...args], { stdout: "ignore" });
-  const big = join(dir, "big.png");
-  writeFileSync(join(dir, "dot.png"), PNG_1X1);
-  sips(["-z", "2400", "3200", join(dir, "dot.png"), "--out", big]);
-  sips(["-s", "format", "heic", big, "--out", join(dir, "photo.heic")]);
+  let tools: Promise<ConverterTools>;
+  beforeAll(() => {
+    tools = systemConverterTools(homedir());
+    const sips = (args: string[]) => Bun.spawnSync(["/usr/bin/sips", ...args], { stdout: "ignore" });
+    const big = join(dir, "big.png");
+    writeFileSync(join(dir, "dot.png"), PNG_1X1);
+    sips(["-z", "2400", "3200", join(dir, "dot.png"), "--out", big]);
+    sips(["-s", "format", "heic", big, "--out", join(dir, "photo.heic")]);
+  });
 
   test("a HEIC photo comes back as a scaled JPEG", async () => {
     const r = await renderAttachment(
