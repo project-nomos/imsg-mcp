@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packs a built imsg-mcp binary into an MCP Bundle (.mcpb), the one-file install for local
-# mode in Claude Desktop: deploy/mcpb/manifest.json plus server/imsg-mcp, validated and
-# zipped by the official mcpb CLI. Prints the bundle path and its SHA-256.
+# mode in Claude Desktop: deploy/mcpb/manifest.json plus server/imsg-mcp, validated by the
+# official mcpb CLI and zipped. Prints the bundle path and its SHA-256.
 #
 #   scripts/build-mcpb.sh dist/imsg-mcp out/
 #
@@ -37,8 +37,27 @@ chmod 755 "$stage/server/imsg-mcp"
 # stdin is closed so the CLI can never wait for an answer; progress goes to stderr.
 echo "build-mcpb: validating the manifest with ${mcpb[*]}" >&2
 "${mcpb[@]}" validate "$stage/manifest.json" </dev/null >&2
+
+# A bundle is a zip with manifest.json at the top, Unix permissions kept, and no entries
+# for folders (mcpb's unpacker would try to write them as files), which is what
+# "mcpb pack" makes. Info-ZIP builds the same archive: "mcpb pack" compresses the 90 MB
+# binary in JavaScript and stalled for minutes to hours on GitHub's runners.
 out="$outdir/imsg-mcp-${version}-darwin-arm64.mcpb"
+out_abs="$(cd "$outdir" && pwd)/$(basename "$out")"
+rm -f "$out_abs"
 echo "build-mcpb: packing $out" >&2
-"${mcpb[@]}" pack "$stage" "$out" </dev/null >/dev/null
+(cd "$stage" && zip -q -X -D -r -9 "$out_abs" manifest.json LICENSE server)
+listing="$(unzip -Z "$out_abs")"
+if grep -q '^d' <<<"$listing"; then
+  echo "build-mcpb: $out has folder entries" >&2
+  exit 1
+fi
+for entry in manifest.json LICENSE server/imsg-mcp; do
+  grep -q " ${entry}\$" <<<"$listing" || { echo "build-mcpb: $entry is missing from $out" >&2; exit 1; }
+done
+grep -q '^-rwxr-xr-x .* server/imsg-mcp$' <<<"$listing" || {
+  echo "build-mcpb: server/imsg-mcp lost its executable bit in $out" >&2
+  exit 1
+}
 echo "$out"
 shasum -a 256 "$out" | cut -d' ' -f1
