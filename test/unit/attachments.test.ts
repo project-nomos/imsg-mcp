@@ -385,7 +385,8 @@ describe.skipIf(!MAC)("rendering with the macOS converters (sandboxed)", () => {
   let tools: Promise<ConverterTools>;
   beforeAll(() => {
     tools = systemConverterTools(homedir());
-    const sips = (args: string[]) => Bun.spawnSync(["/usr/bin/sips", ...args], { stdout: "ignore" });
+    const sips = (args: string[]) =>
+      Bun.spawnSync(["/usr/bin/sips", ...args], { stdout: "ignore" });
     const big = join(dir, "big.png");
     writeFileSync(join(dir, "dot.png"), PNG_1X1);
     sips(["-z", "2400", "3200", join(dir, "dot.png"), "--out", big]);
