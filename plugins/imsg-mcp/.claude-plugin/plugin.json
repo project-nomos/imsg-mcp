@@ -1,6 +1,6 @@
 {
   "name": "imsg-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "iMessage and SMS for AI agents: read, search and, with your approval, send texts through imsg-mcp running on your own Mac.",
   "author": {
     "name": "Project Nomos",

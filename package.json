@@ -1,6 +1,6 @@
 {
   "name": "imsg-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server and agent plugin that let AI assistants such as Claude, ChatGPT and Codex read and send iMessage/SMS through a Mac you control, with send guardrails and Cloudflare Access sign-in",
   "license": "MIT",
   "author": "Project Nomos",
